@@ -1,0 +1,200 @@
+Network Protocol
+- Language that governs communication between networking devices
+
+Cost of route
+- The number of routes (jumps) it takes to go from one interface to another
+
+SOHO 
+- Small office & Home office
+
+tracert 
+- tracert is amount of hops to destination
+
+Logical topology
+- Path of how data is transferred between devices
+
+Physical topology
+- Physical arrangement of a network (cables, devices)
+
+DNS Domain Name System
+
+Speed (bits per second)
+(bytes = 8 bits)
+
+Uptime vs Availability
+- Uptime = Number of minutes / Total number of minutes in a year [525600]
+- Availability = ((Total number of minutes in a year-Downtime in minutes)/(Total number of minutes in a year ))* 100
+
+Bus topology
+- All devices connected in a line that branches off
+
+Ring topology
+- Cabled together, first device connected to last device
+- Each device connected to 2 device
+
+Star topology
+- Star shape, all devices connected to a central switch
+
+Mesh topology
+- One device connects to multiple devices -> increase redundency
+
+OSI Model (Open System Interconnect Model) - created by International Organization for Standardization (ISO)
+Please do not throw sausage pizza away
+- Application
+- Presentation
+- Session
+- Transport
+- Network
+- Datalink
+- Physical
+*Each layer is independent of each other
+
+Layer 7 Application Layer
+- FTP, Telnet, HTTP
+- Use protocols to communicate with lower layers
+- Provides network services to application, user authentication
+- Not talking about individual application
+- Talking about application protocol, not the application itself
+
+Layer 6 Presentation Layer
+- Ensures that data sent by one application is "readable" by another application (MP3 can be listened to online with Windows and iOS because data is presented in a format that both side understands)
+- Formats data to be presented to application layer
+- Negotiates data transfer syntax for application layer
+- Provides encryption
+- This data must be changed to "Machine independent format"
+~ Imagine opening a JPG in Notepad
+
+Layer 5 Session Layer
+- Establish, maintain and terminate of sessions between applications
+- Two application processes on different machines can establish session
+ex. NetBIOS (Network Basic Input/Output System)
+ex. PPTP (Point-to-Point Tunneling Protocol)
+
+Layer 4 Transport Layer
+- Message segmentation: segment the message in the upper layers into smaller units, then passes it down to Network layer for sending
+- Handles transportation issues between hosts
+- Ensures data transport reliability
+- Flow control, makes sure it is not transferring more data than it can process
+- Sessoin Multiplexing, multiple messages streams or sessions onto one logical link 
+1) TCP (Transmission Control Protocol) 
+	- reliability, maintains, and terminates virtual circuits
+	- TCP 3-way handshake
+	- If paket is missing, it will be retransmitted
+2) UDP (User Datagram Protocol) - 
+	- Does not provide reliability
+	- If packets dropped, they are lost, does not retransmit lost packet
+
+Layer 3 Network layer
+- This layer is all about Data Delivery, how it routes data from one device to another 
+- Concern with path determination
+- 3 routing protocols in Layer 3 switches (router capable)
+1) OSPF (Open Shortest Path First)
+2) BGP (Border Gateway Protocol)
+3) IS-IS (Intermediate Systems to Intermediate Systems)
+*No reliability at this level. Must depend on TCP. If UDP is used, application layer need to provide reliability. Ex. TFTP uses UDP at Layer 4, and IP at Layer 3 = no reliability. Therefore, TFTP must provide reliability
+
+Layer 2 Data Link
+- Concerns with how data is formatted for transmission 
+ex. Ethernet -> use MAC address XXXYYY = 48bits (made from OUI Organization Unique Identifier XXX + Unique Portion YYY)
+- MAC Address is flat address structure VS IP Address is logically assigned. Therefore, Data Link does 
+- Provides error detection
+- Data link formats according to the type of Media (Ethernet, WAN link) into the appropriate Physical Link 
+
+Layer 1 Physical
+- Physical Device and Physical Cabling
+- Specs of these media types
+
+TCP/IP model
+- Application Layer
+- Transport Layer
+- Internet Layer
+- Network Access Layer
+
+Host Communication:
+- Layer 7 only talks to Layer 7 through encapsulation and decapsulation, similarly 1 -> 1 
+- Encapsulation puts "header" onto the user data from L7 to L2, then FCS Frame Check Sequence occurs at the end to ensure there is no corruption 
+[User Data]
+[L7 Hdr][User Data]
+[L6 Hdr][L7 Hdr][User Data]
+[L5 Hdr][L6 Hdr][L7 Hdr][User Data]
+[L4 Hdr][L5 Hdr][L6 Hdr][L7 Hdr][User Data]
+[L3 Hdr][L4 Hdr][L5 Hdr][L6 Hdr][L7 Hdr][User Data]
+[L2 Hdr][L3 Hdr][L4 Hdr][L5 Hdr][L6 Hdr][L7 Hdr][User Data] FCS
+[Bits]
+---through Physical Media as bits (0,1) ---
+
+Transport layer transmits "Segments"
+Network layer transmits "Packets"
+Data Link layer transmits "Frames"
+Physical layer transmits "Bits"
+
+Protocol Data Unit (PDU) = segments, packets, frames, bits
+
+Bits (0,1)
+128 64 32 16 8 4 2 1
+
+Hexadecimal (0-F)
+0,1,2,...,9,A,B,...,F
+0,1,2,...,9,10 (1010),11,...,15 (1111)
+ex. 128 = 1000 0000 = 8 0 or 80 (Hexadecimal)
+ex. 240 = 1111 0000 = 15 0 or F0 (Hexadecimal)
+
+ipconfig /all | more
+arp -a
+telnet (ip)
+
+Change MAC address of computer (NIC -> Configure -> Network Address)
+
+*Ping requires ICMP Internet Control Message Protocol
+
+RFC1918 Addresses
+- Private address 10.1.1.1
+
+IP Characteristics
+- Layer 3 or network layer protocol
+- Connectionless, no sessions formed. TCP on the other hand is connection oriented
+- packets treated independently of other packets (packets can take different paths to get to destination)
+	-> these packets go through "Routing Protocol" where it determines the bestpath from A to B (bandwidth, hopcount, load balancing)
+- NO guranteed delivery or data loss recovery (corruption), IP uses "best effort delivery", again TCP will be needed if guranteed is requried
+
+Recap IP:
+- no builtin sessions
+- no builtin retransmission
+- TCP is needed to handle dropped, corrupted, and misdirected packets. IP relies on higher level protocol for those requriements
+
+Before TCP can be established and any data transmitted, 3-way handshake
+(Transmitter) SYN -> (Receiver)
+(Transmitter) <- SYN ACK (Receiver)
+(Transmitter) -> ACK (Receiver)
+
+Address Classes IPv4
+- Class A (unicast)
+- Class B (unicast)
+- Class C (unicast)
+- Class D - multicast (one device talking to a group of device, rather than 1 to 1)
+- Class E - reserved for future or experimental purposes
+* classful addresses superseeded by CIDR (classless interdomain routing) in 1993
+* allocated by Internet Assigned Numbers Authority (IANA)
+
+Class A (start with binary 1 - 1XXXXXXX)
+- first 8 bits = network
+- Start with 1, end with 126  1.0.0.0 - 126.255.255.255
+- 0 is reserved for default network, and 127 is reserved for loopback
+- [00000000 network],[00000000,00000000,00000000 hosts]
+
+Class B (start with binary 10 - 10XXXXXX)
+- first 16 bits = network
+- Start with 128, end with 192 128.0.0.0 to 191.255.255.255
+- [00000000, 00000000 network],[00000000,00000000 hosts]
+
+Class C (start with binary 110 -> 110XXXXX)
+- first 24 bits = network
+- Start with 192, end with 223 192.0.0.0 to 223.255.255.255
+- [00000000, 00000000,00000000 network],[00000000 hosts]
+
+Class D - multicast 
+- 224.0.0.0 - 239.255.255.255
+
+Class E - reserved for future or experimental purposes
+- 240.0.0.0 - 255.255.255.255
+
