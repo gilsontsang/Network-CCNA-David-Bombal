@@ -198,3 +198,306 @@ Class D - multicast
 Class E - reserved for future or experimental purposes
 - 240.0.0.0 - 255.255.255.255
 
+Directed Broadcast Address
+- Host sends data to all devices on a specific network
+- It is when all host bits at set to 1s
+ex. network 172.31.0.0 => broadcast 172.31.255.255
+- Routers can route directed broadcast, but it is disabled by default to prevent hacking utilities (ex. Smurf) performing DoS attacks
+
+Local Broadcast Address
+- communicate with all devices on local network
+- address is all binary 1s 255.255.255.255
+ex. host requests an IP address from DHCP server Dynamic Host Configuration Protocol
+- local broadcast address is ALWAYS dropped by router, however this can be bypassed with DHCP forwarding or DHCP relay
+ex. device B (vlan 10) connects through a router A to the DHCP server (vlan20) through a router. However, it broadcasts out DHCP request, but blocked by router A. When DHCP forwrading or relay is turned on, then router A blocks this broadcast request, but proxies a unicast DHCP request to the DHCP server on behalf of device B
+
+Local loopback address
+- 127.0.0.1 -> system send a message to itself (anything in range 127.X.X.X is loopback, anyone can be used to test this TCP/IP stack is correctly installed on a machine)
+- Notice 127.0.0.1 is class A, therefore design flaw of IPv4 to use this class A address for this purpose, loses 16 million addresses
+- IPv6 uses "::1"
+*Routers and Switches loopback address ("loopback interface") is different than Local loopback address
+
+Private Addresses
+- Request for Comments is a formal document (Internet Engineering Task Force IETF drafted by a community from multiple vendors), changes can be made only by another RFC - it can be superseeded
+- Internet Standards
+- RFC1918: private IP addresses are non routable addresses on the internet, blocked by ISP
+Blocked by IANA Internet Assigned Numbers Authority
+	-> 10.0.0.0-10.255.255.255
+	-> 172.16.0.0-172.31.255.255
+	-> 192.168.0.0-192.168.255.255
+- RFC3927: IPv4 Link-Local Addresses, Automatic Private IP Address (APIPA) by Microsoft. Range 169.254.0.0 /16. Allows devices through a cable or local segment (switch) to communicate to each other when no DHCP server is available without configuration. Host would randomly generate the host specific part of the address
+
+Subnet Mask
+- Local vs Remote
+-> if the network portion of the device A is the same as device B, then A and B are on the same network - hence, local - otherwise the A is remote to B
+
+Discontiguous Subnet Mask
+- Subnet mask must start with Binary 1s and afterwards 0s have to be together ex 255.240.0.0 = 11111111.11110000.00000000.00000000
+- Discontiguous subnet mask is inconsistent, ex. 240.255.3.191 = 11110000.11111111.00000110.11000000
+*Discontiguous subnet mask is not supported by Cisco devices
+
+CIDR (Classless InterDomain Routing - introduced in 1993)
+- Replaced classful IP addressing
+- Variable Length Subnet Mask (VLSM)
+ex. CIDR notation = /24 instead of 255.255.255.0 or /11 = 255.224.0.0 (not on Octet)
+
+Cisco IOS Internetwork Opreating System 
+- Cisco's OS
+- Connecting routers via Console Port
+
+Cisco IOS shortcuts
+- ? for help
+- Ctrl + C to cancel out current operation
+- Ctrl + Shift + 6 to abort ping or tracert
+- Ctrl + Z to get back to Privledge Mode
+- Ctrl + A to get to the beginning of the line
+- Ctrl + E to get to the end of the line
+- Ctrl + D to delete
+- Ctrl + U to remove entire line
+
+Cisco IOS misc:
+- enable secret is encrypted password [should not be used]
+- enable password is shown in cleartext in running & saved configuration [should not be used]
+- VTL lines are used for Telnet and SSL connections
+
+Cisco IOS modes
+1) User Mode 
+=> Type "enable" in User Mode to enter Priviledge Mode/Enable Mode
+Router>
+Router>enable
+Router#
+*View Only Mode - no execution
+*By default - no authentication needed
+
+2) Priviledge Mode 
+=> Type "configue terminal" in Priviledge Mode/Enable Mode to enter Global Configuration Mode
+Router#
+Router#conf t
+Router(config)#
+
+3) Global Configuration Mode
+=> Type "int f0/0" in Global Configuration Mode to enter Interface Mode
+Router(config)#
+Router(config)#int f0/0
+Router(config-if)#
+*Change hostname
+Router(config)# hostname newNameHere
+*Change banner motd (notice, delimiting character ot start and finish the motd)
+Router(config)# banner motd #dflsjfkljdfs# 
+
+4) Interface Mode
+Router(config-if)#
+*Change interface configuration ip address, type "ip address 10.0.0.1 255.255.255.0" to change IP address
+Router(config-if)# ip address 10.0.0.1 255.255.255.0
+
+5) Line Mode 
+- Line Console Mode (configuring console port) ex. line console 0
+*Setting password for Console before access to User Mode Router>
+Router(config)# line console 0
+Router(config)# login (this makes it required that a password is needed. login or password sequence does not matter)
+Router(config)# password enterPasswordHere
+- Line VTY Mode (configuring Telnet/SSH) ex. line vty 0 4 (to configure the first 5 vty ports)
+*Specify routing protocol (ex. RIP) - will be covered later
+Router(config)# router rip
+
+[commands] Cisco IOS commands
+Router> show version
+Router> enable
+Router# show startup configuration
+Router# show startup configuration | include hostname [only viewing hostname]
+Router# show running-config 
+Router# show running-config | begin vty [looking at a particular interface]
+Router# show ip interface brief 
+Router# show ip interface g0/0
+Router# copy running-config startup-config [saves RAM to NVRAM] - MERGE, not overridden
+Router# configure replace nvram:startup-config - REPLACEMENT (preferred if entire replacement)
+Router# erase startup-config 
+Router# copy running-config tftp: > 192.168.XX.XX
+Router# copy startup-config tftp: > 192.168.XX.XX
+Router# copy tftp running-config > 192.168.XX.XX > sourceFileName [merge running-config from tftp] - MERGE of running-config
+Router# copy tftp startup-config > 192.168.XX.XX > sourceFileName [copy startup-config from tftp] - REPLACEMENT startup-config in NVRAM
+Router# configure replace tftp://192.168.XX.XX/sourceFileName [copy running-config from tftp] - REPLACEMENT of running-config
+Router# show flash [files can also be stored in flash]
+Router# copy running-config flash:run1.cfg [copying files to flash]
+Router# copy startup-config flash:/start.cfg [copying files to flash]
+Router# more flash:run1.cfg [viewing content from stored flash]
+Router# more flash:/start.cfg [viewing content from stored flash]
+Router# wr [write memory - builds startup configuration]
+Router# terminal length X [shows amount of terminal length or 0 to show all - default is 24]
+Router# no ip domain lookup [prevents a command waiting to timeout when resolving DNS]
+
+Summary:
+- copy running startup [override - overriding startup config with running config]
+- copy from Startup config to running config [merge]
+- configure terminal is a merge of configuration
+- copy tftp:running [merge - copying from tftp to running config]
+- copy tftp:startup [replacement]
+- backup with copy run tftp: or copy start tftp:
+
+Subnetting
+ex. 172.16.35.123 /20 
+== 172.16.01000011.123 255.255.240.0
+Therefore 35 -> 0100 0011
+0100 = network = 32
+0011 = host = 3
+*Network IP = 172.16.32.0 [all host = 0]
+*1st IP = 172.16.32.1 [all host = 0, except for last = 1]
+*Last IP = 172.16.47.254 [all host = 1, except for last = 0]
+*Broadcast = 172.16.47.255 [all host = 1]
+
+Subnetting
+ex. 172.16.129.1 /17
+== 172.16.10000001.1 255.255.128.0
+Therefore 129 -> 1 000 0001
+1 = network = 128
+000 0001 = host = 1
+*Network IP = 172.16.128.0 [all host = 0]
+*1st IP = 172.16.128.1 [all host = 0, except for last = 1]
+*Last IP = 172.16.255.254 [all host = 1, except for last = 0]
+*Broadcast = 172.16.255.255 [all host = 1]
+
+Subnetting and Networks
+# of host of subnet = 2^n - 2 (network and broadcast)
+# of networks = 2^n
+ex. 10.1.1.0 /24 into subnets that support 14 machines
+1) 2^4-2 = 16 - 2 = 14 machines. Therefore, we need a subnet of /28 (borrowing 4 bits)
+2) Turn /24 into /28, 10.1.1.0 -> 10.1.1. 0000 | 0000
+So... 
+10.1.1.0 /28 (0000 | 0000)
+10.1.1.16 /28 (0001 | 0000)
+10.1.1.32 /28 (0010 | 0000)
+10.1.1.48 /28 (0011 | 0000)
+...
+10.1.1.240 /28 (not 254 because 255.255.255.240 = /28 or 1111|0000 - remember .240 because host portion remains 0))
+
+Subnetting and Networks
+ex. 10.128.192.0 /18 requires 30 subnets as many hosts as possible
+# of networks (subnets) = 2^5, therefore n=5 (borrow 5 bits)
+/18 = 255.255.192.0
+192 -> 11 | 000000
+We need to borrow 5 bits, therefore /18 -> /23 and 11|000000 becomes 1100000|0
+So...
+10.128.192.0 /23 (1100000|0)
+10.128.194.0 /23 (1100001|0)
+10.128.196.0 /23 (1100010|0)
+10.128.198.0 /23 (1100011|0)
+...
+10.128.254.0 /23 (1111111|0 - remember 254.0 because host portion remains 0)
+
+ex. What is the network address for 172.16.1.1 with network mask 255.255.192.0?
+network mask = 255.255.192.0 = /18 or 11 | 000000 (host)
+-> Make all host = 0 to find network address, therefore 172.16.0.0 /18
+
+ex. What is the broadcast address for host 172.16.1.1 with network mask 255.255.192.0?
+network mask 255.255.192.0 = /18 or 11 | 000000. 00000000 (host)
+-> Make all host = 1 to find broadcast address, therefore 172.16.63.255 /18
+
+ex. PC's ip address is 192.168.1.130/27, configure the router's Ethernet 0 interface with the last IP address in the same subnet
+-> /27 = 255.255.255.224 or 100 | 00010
+-> Therefore, last ip address = broadcast - 1
+-> Set hosts = 1, 100 | 11111 = 159, 159 - 1 = 158 
+-> Therefore, router's Ethernet 0 interface should be 192.168.1.158 /27
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 192.168.1.158 255.255.255.224
+
+ex. Configure the router's serial interface (Serial 0/1) with the last IP address in the subnet 192.168.168.184/30, then enable the router's interface
+-> /30 = 255.255.255.252 or 101110|00
+-> Therefore, last ip address = broadcast - 1
+-> Set hosts = 1, 187 - 1 = 186
+-> Therefore, 192.168.168.186 255.255.255.252
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface serial 0/1
+Router1(config-if)#ip address 192.168.168.186 255.255.255.252
+Router1(config-if)#no shutdown
+
+ex. Configure the router's Ethernet 0 interface with the last IP address in the same subnet as PC in the diagram. Note 2: PC's address is 172.16.197.231/23
+-> .197 /23 = 1100010 | 1
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 172.16.197.254 255.255.254.0 (Note* Not 255, because that is broadcast)
+
+ex. Configure the router's Ethernet 0/0 interface with the 2nd IP address in the same subnet as PC in the Diagram. Note: The PC's address is 172.16.197.231/23
+-> 197 /23 1100010 | 1
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0/0
+Router1(config-if)#ip address 172.16.196.2 255.255.254.0
+
+ex. Your router is the same subnet as host 10.199.199.199/26. 
+Configure the router's Ethernet 0/0 interface with the first IP address in the subnet
+-> 199 @ /26 = 11 | 00 0111
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0/0
+Router1(config-if)#ip address 10.199.199.193 255.255.255.192
+
+ex. Your router is the same subnet as host 10.199.199.199/22. 
+Configure the router's Ethernet 0 interface with the first IP address in the subnet.
+-> 199 @ /22 = 1100 01|11
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 10.199.196.1 255.255.252.0
+
+ex. Your router is the same subnet as host 10.199.199.199/22. 
+Configure the router's Ethernet 0 interface with the last IP address in the subnet
+-> 199 @ /22 = 1100 01|11
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 10.199.199.254 255.255.252.0
+
+ex. Your router is the same subnet as host 10.10.10.10/21. 
+Configure the router's Ethernet 0 interface with the first IP address in the subnet
+-> .10 /21 = 00001 | 010
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 10.10.8.1 255.255.248.0
+
+ex. Your router is the same subnet as host 10.10.10.10/21. 
+Configure the router's Ethernet 0 interface with the last IP address in the subnet
+-> .10 /21 = 00001 | 010
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 10.10.15.254 255.255.248.0
+
+ex. Your router is the same subnet as host 172.172.172.172/25
+Configure the router's Ethernet 0 interface with the first IP address in the subnet
+-> .172 /25 = 1 | 0101100
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 172.172.172.129 255.255.255.128
+
+ex. Your router is in the same subnet as host 172.172.172.172/25
+Configure the router's Ethernet 0 interface with the last IP address in the subnet
+-> .172 /25 = 1 | 0101100
+[PROGRAM]
+Router1>enable
+Router1#conf t
+Router1(config)#interface ethernet 0
+Router1(config-if)#ip address 172.172.172.254 255.255.255.128
+
+ex. Can 10.1.1.1 ping 10.1.2.1?
+-> You don't know until you know its submask
+-> If we are given /24, can we stil ping it? No, because /24 is 255.255.255.0 and (10.1.1).1 is the network for the 1st ip address and (10.1.2).1 is on another network. Hence, not able to ping to each other
+-> If we are given /16, can we still ping it? Yes, because /16 is 255.255.0.0 and (10.1).1.1 = (10.1).2.1 and 10.1 is the network on both devices
+
+ex. For the network 192.168.1.0 /24, how to support 60 hosts?
+1) Find host bits. 2^6 host bits = 64 -> /26
