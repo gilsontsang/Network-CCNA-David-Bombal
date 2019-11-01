@@ -325,6 +325,11 @@ Router# more flash:/start.cfg [viewing content from stored flash]
 Router# wr [write memory - builds startup configuration]
 Router# terminal length X [shows amount of terminal length or 0 to show all - default is 24]
 Router# no ip domain lookup [prevents a command waiting to timeout when resolving DNS]
+Router# debug ip icmp [on the router, when a computer tries to ping the router, you can see the result]
+Router(config)# ip dhcp pool NAME [DHCP pool on router]
+Router(config)# ip dhcp excluded-address ipAddressStart ipAddressEnd [exclude IP address from DHCP pool]
+Router(dhcp-config)# default-router ipOfGateway [Gateway]
+Router(dhcp-config)# dns-server ipOfDNSServer [DNS Server]
 
 Summary:
 - copy running startup [override - overriding startup config with running config]
@@ -500,4 +505,125 @@ ex. Can 10.1.1.1 ping 10.1.2.1?
 -> If we are given /16, can we still ping it? Yes, because /16 is 255.255.0.0 and (10.1).1.1 = (10.1).2.1 and 10.1 is the network on both devices
 
 ex. For the network 192.168.1.0 /24, how to support 60 hosts?
-1) Find host bits. 2^6 host bits = 64 -> /26
+1) Find host bits. 2^6 host bits = 64 hosts per subnet
+2) From /24 = 11111111 11111111 11111111 00000000 
+-> Borrowing 6 host bits, /24 becomes /26 11111111 11111111 11111111 11000000 
+192.168.1.0 /26
+192.168.1.64 /26
+192.168.1.128 /26
+192.168.1.192 /26
+
+ex. Get 2 routers connected to talk to each other
+Router1> enable
+Router1# conf t
+Router1(config)#router eigrp 100 [to enable full connectivity]
+Router1(config-router)# network 192.168.1.0
+Router1(config-router)# no auto-summary
+Router2> enable
+Router2# conf t
+Router2(config)#router eigrp 100 [to enable full connectivity]
+Router2(config-router)# network 192.168.1.0
+Router2(config-router)# no auto-summary
+[confirm it is working]
+Router1# show ip eigrp neighbors 
+Router1# show ip route [see what's connected]
+
+ex. Subnet 192.168.1.128 /26 to allow it to host only 2 hosts
+1) To host 2 hosts, we only require 2 host bits. Therefore 255.255.255.252 or /30 or 10 (network) | 00 00 (new subnet) | 00 (new host)
+2) # of new subnets with 2 host bits is 2^(network bits borrowed) = 2^4 = 16 new subnets
+Therefore new subnets would be:
+192.168.1.128 /30 (10 (network) | 00 00 (new subnet) | 00 (new host))
+192.168.1.132 /30 (10 (network) | 00 01 (new subnet) | 00 (new host))
+192.168.1.136 /30 (10 (network) | 00 10 (new subnet) | 00 (new host))
+... /30
+192.168.1.188 /30 (10 (network) | 11 11 (new subnet) | 00 (new host))
+
+Basic Communication:
+- CSMA/CD Carrier Sense Multiple Access Colision Detection
+- Broadcast is not supported on IPv6
+- Broadcast vs Multicast - multicast is a selected group of broadcast
+
+Bus Topology (early ethernet)
+- Connects through a T connector
+- 10base5 "thicknet" (500meters distance)
+- 10base2 "thinnet" (185meters distance)
+- Uses CSMA/CD to avoid Collision
+-> CS Carrier Sense checks the wire 
+-> MA Multiple Access allows multiple devices to access one wire
+
+10base2
+- AKA "Single Collision Domain / Single Broadcast Domain
+- Coax cable
+- baseband
+- 10mbs is the maximum speed
+- 2 is the maximum segment length of 185meters
+- Base = baseband - single signal in the wire (whereas broadband allows for multiple signal in the wire)
+- Ends with a Terminator, because again... single signal. Therefore if it heads back, collision would occur
+(ISSUE1) Collision
+(ISSUE2) Cable Length, longer the cable, greater the degradation
+(ISSUE3) Cable break -> No terminator
+(ISSUE4) 10Mbps is for the entire segment, not per device. Because of Collisions, you can only utilize 30-40% of the speed
+ex. 10Mbps through 4 devices, 10/4 = 2.5, then *0.3 = 0.75Mbps
+
+10baseT
+- Shielded/Unshielded twisted pair
+- maximum segment length of 100meters
+- Base = baseband
+
+RJ45 Pin Connector
+- T568A or T568B 
+- TIA EIA 568 defined as structured cabling standards
+- EIA stands for Electronics Industry Alliance
+- T568A (s.green, green, s.orange, blue, s.blue, orange, s.brown, brown)
+- T568B (s.orange, orange, s.green, blue, s.blue, green, s.brown, brown) is most popular 
+
+Straight Through Cables
+- When connecting PC to Router/Switch, etc
+- Uses Straight Through Cables (pin 1, corresponds to pin 1, pin 2 to pin 2 etc...)
+- Ethernet port interface used on NICs, routers and uplink ports
+
+Cross Over Cable
+- When connecting 2 PCs or 2 Routers together
+- TX transmit
+- RX receive
+- Pins cross (pin 1 TX+ to pin 3 RX+, pin 2 TX- to pin 6 RX-, pin 3 RX+ to pin 1 TX+, pin 6 RX- to pin 2 TX-)
+-> in 10baseT or 100baseT, pin 4 5 7 8 are not used
+-> in gigabit, all pins are used
+
+Cable Category
+- Cat3: telephone wiring, used to be used for data transfer
+- Cat5: frequency up to 100MHz, speeds of 10/100 Mbps supported up to 100meters
+- Cat5e: frequency up to 100Mhz, supports 1Gbps (improve Cat5 by reducing noise and interference... most Cat5 meets Cat5e specs, but might not meet certifications therefore, not categorized as Cat5e) up to 100meters
+- Cat6: frequency up to 250Mhz, increase pair twists per inch, supports 10Gbps. up to 55meters. Suitable for 10baseT, 100baseTx or fastEthernet or 1000baseTe or Gigabitethernet or 10GbpEthernet
+- Cat6a (argumented): frequency up to 500Mhz, supports 10Gbps. up to 100meters.
+- Cat7 - frequency up to 600Mhz, supports 10Gbps. up to 100meters ( can be tera Connectors, doesnt have to be RJ45). Foiled every pair - class F
+- Cat7a - frequency up to 1000Mhz, supports 100Gbps.
+- Cat8 - supports 40Gbps
+- Cat8.1 - backward compatible and interoperable with Cat6a
+- Cat8.2 - interoperable with Cat7
+
+When to use Straight Through and Cross Over?
+- Straight Through: router-switch, pc-switch, pc-bridge, pc-hub
+- Cross Over: switch-switch, pc-pc, hub-hub, router-router, bridge-switch, pc-server, hub-switch
+
+MDI Media Dependent Interface
+- Nowadys Auto MDI/MDIX made cross over cables obsolete - auto detect cable type
+- PC, routers uses MDI
+- Switches and Hub uses MDIX
+
+
+Hub vs Bridge vs Switch
+
+MAC Address
+- 48 bits (24 bits to OUI + 24 bits to Station Address)
+- OUI = Organizational Identifier - identifies vendor
+- Station address should be unique (can be changed in software) but it is burnt into NIC physically
+
+MAC OUI 
+- Last bit in the 1st Octet is 0 (unicast) or 1 (multicast)
+- 2nd last bit in the 1st Octet is 0 (globally unique MAC address) or 1 (administrator has changed this in software)
+
+
+
+
+
