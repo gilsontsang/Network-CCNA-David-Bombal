@@ -1,4 +1,4 @@
-ex. Get Host 1 (10.1.1.1) -> Switch -> Router (f0/0 10.1.1.254, f0/1 10.1.2.254)) -> Switch -> Remote Host 2 (10.1.2.1), host 1 to host 2 to talk to each other
+ex. Get Host 1 (10.1.1.1) -> Switch -> Router (f0/0 10.1.1.254, f0/1 10.1.2.254)) -> Switch -> Remote Host 2 (10.1.2.1), host 1 to host 2 to talk to each other [[WHEN NO GATEWAY IS SET... we are setting a "gateway of last resort"]]
 Host1> enable
 Host1# conf t
 Host1(config)# ip route 0.0.0.0 0.0.0.0 10.1.1.254 [this means, when Host1 does not know where to forward traffic without a gateway, it will go to 10.1.1.254)
@@ -7,3 +7,75 @@ Host2> enable
 Host2# conf t
 Host2(config)# ip route 0.0.0.0 0.0.0.0 10.1.2.254
 **To confirm this: Host1> show ip route or Host2> show ip route
+
+MAC vs IP Address through a router
+- MAC address changes when going through a Layer 3 Router/switch - going from one Vlan or another / or 1 interface to another interface, MAC address is rewritten by the router
+- IP address however remains the same, except when a NAT Network Address Translation is used
+
+ex. Router1 -> Router2 -> Router 3
+Goal: Router1 ping Router3
+1) Router1 -> Router2 (ping request)
+Source MAC: Router1
+Destination MAC: Router2
+Source IP: Router1
+Destination IP: Router3
+2) Router2 -> Router3 (ping request)
+Source MAC: Router2
+Destination MAC: Router3
+Source IP: Router1
+Destination IP: Router3
+3) Router3 -> Router2 (ping reply)
+Source MAC: Router3
+Destination MAC: Router2
+Source IP: Router3
+Destination IP: Router1
+4) Router2 -> Router1 (ping reply)
+Source MAC: Router2
+Destination MAC: Router1
+Source IP: Router3
+Destination IP: Router1
+
+ex. See how long ARP cache last (using interface f0/0)
+Router> enable
+Router# show interface f0/0
+Answer: "ARP Timeout 04:00:00" (default for Cisco)
+
+Hub and Half/Full Duplex
+- Hub can see all traffic on a network (including passwords on Telnet), another benefit of using a switch
+- Half Duplex was first used because of Hubs and when negotiation with the other side did not work, it reverted back to 10Mbps Half Duplex
+- When autonegotiation does not work, the device will also revert back to half duplex... resulting in successful pings but poor speed (transfer of large files). Frames will eventually be queued up and eventually dropped
+
+To test Duplex mismatch or when autonegotiation does not work
+1) Compare the speed of both devices (ex. router on f0/0 and computer on f0/3)
+Router1# show running interface f0/0
+"full duplex"
+Computer1# show running interface f0/3
+"full duplex"
+2) Use a large # of pings (ex. 1000) and select a large datagram size (ex. 18000)
+3) Result
+- The device using half-duplex will have a "late collision" while performing the pings but it only occurs when you are sending enough traffic to trigger this
+- The device using full-duplex, use "Router1# show interface f0/3" will see "input errors", "CRC", "runts", duplex mismatch messages 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
