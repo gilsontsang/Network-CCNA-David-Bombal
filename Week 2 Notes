@@ -1,0 +1,9 @@
+ex. Get Host 1 (10.1.1.1) -> Switch -> Router (f0/0 10.1.1.254, f0/1 10.1.2.254)) -> Switch -> Remote Host 2 (10.1.2.1), host 1 to host 2 to talk to each other
+Host1> enable
+Host1# conf t
+Host1(config)# ip route 0.0.0.0 0.0.0.0 10.1.1.254 [this means, when Host1 does not know where to forward traffic without a gateway, it will go to 10.1.1.254)
+...similarly... if host 2 wants to contact host 1 and does not know where to forward the traffic for any network that is not connected to them...
+Host2> enable
+Host2# conf t
+Host2(config)# ip route 0.0.0.0 0.0.0.0 10.1.2.254
+**To confirm this: Host1> show ip route or Host2> show ip route
