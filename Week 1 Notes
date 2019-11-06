@@ -43,10 +43,10 @@ Please do not throw sausage pizza away
 - Application
 - Presentation
 - Session
-- Transport
-- Network
-- Datalink
-- Physical
+- Transport (TCP/UDP)
+- Network (IP Address, Router, Layer 3 switch)
+- Datalink (Mac Address, Bridge, Switches)
+- Physical (RJ45, Hubs, Physical Interfaces)
 *Each layer is independent of each other
 
 Layer 7 Application Layer
@@ -301,6 +301,7 @@ Router(config)# password enterPasswordHere
 Router(config)# router rip
 
 [commands] Cisco IOS commands
+Switch# show mac address-table
 Router> show version
 Router> enable
 Router# show startup configuration
@@ -601,6 +602,9 @@ Cable Category
 - Cat8 - supports 40Gbps
 - Cat8.1 - backward compatible and interoperable with Cat6a
 - Cat8.2 - interoperable with Cat7
+- DAC Direct Attachment Cable (DAC) - up to 15meters, SFP Small Formfactor Pluggable plug on each end. Supports fiber or copper. up to 10Gbps on SFP+ slot
+- Roll Over Cable - special cable used in Cisco environment (connects computer to Console through the computer's serial port - or get USB to DB9 converter) - pin 1to8, 2-7, ... 8to1.
+
 
 When to use Straight Through and Cross Over?
 - Straight Through: router-switch, pc-switch, pc-bridge, pc-hub
@@ -611,9 +615,6 @@ MDI Media Dependent Interface
 - PC, routers uses MDI
 - Switches and Hub uses MDIX
 
-
-Hub vs Bridge vs Switch
-
 MAC Address
 - 48 bits (24 bits to OUI + 24 bits to Station Address)
 - OUI = Organizational Identifier - identifies vendor
@@ -623,7 +624,88 @@ MAC OUI
 - Last bit in the 1st Octet is 0 (unicast) or 1 (multicast)
 - 2nd last bit in the 1st Octet is 0 (globally unique MAC address) or 1 (administrator has changed this in software)
 
+Hub vs Bridge vs Switch
 
+Hub
+- Layer 1 Physical layer device 
+- Multiport repeater with no intelligence - being a repeater, can regenerate the signal to extend distance
+- Physical Star topology (hub being a central device)
+- Logical Bus topology (traffic regenerates to all devices)
+- 10BaseT -> 10Mbps shared between 4 computers = 2.5Mbps *0.30 (efficiency due to collision) = 0.75Mbps
+?How it works? 
+1) Receives traffic (frame with MAC address), amplifies the signal then sends the traffic out of all ports except on the port of which it was received
+2) The destination NICs will receives the frame. They will see the destination MAC address does not match theirs, and they will drop the frame. Otherwise, they will receive the the frame - strip layer 2 headers, pass the packet to higher layer protocol 
 
+Bridge
+- Layer 2 Data Link device
+- Superseeded Hubs
+- Uses MAC address table to learn where a device is on the topology
+- Physical Star topology (bridge being a central device)
+- Perform its processing in software (slow), whereas Switches perofrm its processing in hardware (fast)
+?How it works? 
+1) Host A sending to Host B
+2) When Bridge boots up, MAC address table is empty (although it can be configured with a static table)
+3) After Host A send to B, then MAC address table learns where Host A is
+4) When Host B wants to reply to Host A, it will send a frame to Host A, again Bridge now knows where Host B is, and will update its own MAC address
+5) Now different than Hub, during step (4), Bridge will not broadcast the message to all hosts, but it reads from its MAC address, and it will only send it to host A
+**Advantage of Bridge is that, if there are other hosts on the network (Host C & Host D), by having this directed traffic, it will not use C or D's bandwidth since Host A only wants to communicate with Host B
+**Another advantage of bridge is that, every port is its own Collision Domain. If Host C is having a collision, it will not affect A, B or D
 
+Switch
+- Layer 2 Data Link Device
+- Superseeded Bridge
+- Physical Star topology (switch being a central device)
+- Similar to bridge, every port is its own Collission Domain
+**Advantage of Switch is that it allows for more ports than bridges (this is possible due to processing is done in hardware (faster) using ASICs Application Specific Integrated Circuit allows for high throughput, quick table lookup rather than software)
+**Another advantage, switch can operate at "Wire Speed" (no degradation performance between 2 devices) - perform as fast as if the switch is not even there - does not slow the frame down
+**Another advantage, switch provide XMbps dedicated speed, compared to a hub where the speed is shared.
 
+Switch vs Access Points
+- Switches operate in dedicated bandwidth
+- Access Points act like Hubs, and operate in shared bandwidth
+
+Router (local destination)
+- Level 3 devices
+- Routing decision based on IP addresses of the network address, rather than the individual device IP Address
+?How it works?
+1) Host A's ip address sending to Host B's ip address
+2) Host A needs to know Host B's MAC address, using ARP Address Resolution Protocl
+3) Host A checks its own ARP for whether it has stored Host B's MAC address - if it does not have Host B's MAC address, it will broadcast out who has Host B's ip address (ARP Request)
+--ARP Request---
+(Source MAC: XX)(Destination MAC: FFFFFFFF)(Source IP: ABC)(Destination IP: DEF)
+4) Assume there are host b, c, d on the network. Host B will see that the ARP request and match the request ip address with its own ip, it will then send an (ARP Reply) and add Host A's MAC address to its ARP Cache. Host C and D will drop the frame because it does not match its own IP address
+5) Host A will receive the frame and then it will update its own ARP Cache
+**Note. If the device is on a remote network, then it will send the request to its gateway
+
+Router (remote destination)
+?How it works?
+See Section 111.
+*Moral of the story: IP address will remain the same, but each time a Host transverse a router, the source MAC and destination MAC will be rewritten (Layer 2 headers)
+
+Broadcast Domain vs Collision Domain
+- Broadcast Domain is the entire network that is attached to a router
+- Collision Domains: each device connected to a device is a collision domain, switch connecting to router is its own collision domain, everything attached to a hub is a single collision domain
+
+ARP commands on CMD
+- arp -d (deletes arp cache)
+- arp -a (shows arp entries)
+*Note pinging will usually fail its 1st entry due to ARP cache hasn't been populated during its 1st ping.
+
+Full duplex/Half duplex
+- Full duplex is able to send and receive traffic at the same time, in comparison to Hubs using CSMA/CD Carrier Sense Multiple Access Collision Detection where it is running half duplex (one side can send at any given time)
+- Full duplex disregards CSMA/CD because there is no collision. However, if one device is set to half-duplex and the other device is set to full-duplex, there will be an issue
+ex. if 10Mbps is the speed of normal traffic, enabling full duplex in theory will increase to 20Mbps becaues you can receive and send 10Mbps both ways
+
+Adding MAC Address to Routers
+Router#configure Terminal
+Router(config)#interface f0/0
+Router(config-if)#mac-address 0023.3300.0001 (note* 0023.33 is Cisco's allocated MAC address)
+Router(config-if)#no shutdown
+
+BUM traffic = Broadcast Unknown-unicast, Multicast
+- When a switch receives an unknown unicast packet to an unknown unicast address, it floods all interfaces except from which it was received
+
+Unicast, Multicast, Broadcast
+- Unicast does not flood all ports unless MAC address is unknown
+- Multicast (if vlan is not configured) it will flood all ports
+- Broadcast always flood all ports
