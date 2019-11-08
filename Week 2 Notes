@@ -56,24 +56,255 @@ Computer1# show running interface f0/3
 - The device using half-duplex will have a "late collision" while performing the pings but it only occurs when you are sending enough traffic to trigger this
 - The device using full-duplex, use "Router1# show interface f0/3" will see "input errors", "CRC", "runts", duplex mismatch messages 
 
+To match duplex or autonegotiation of Switch1 and Router1
+1) From Router1
+Router1# conf t
+Router1(config)# int f0
+Router1(config-if)#speed auto
+Router1(config-if)#duplex auto (or half, or full)
+2) If it cannot be set at Router1, then set it on Switch1
+Switch1# conf t
+Switch1(config)# int f0
+Switch1(config-if)#speed auto
+Switch1(config-if)#duplex auto (or half, or full)
+***MORAL of the story, set it to auto. Do not hard code.
 
+Clear previous collisions
+Router1# clear counters
 
+Loopback interface
+- 127.0.0.1
+- By default, it is active (no need for "no shutdown" command)
+- Loopback can be used for telnet... must setup EIGRP
 
+Creating your own loopback interface
+Router1>enable
+Router1#conf terminal
+Router1(config)# interface loopback 0 (up to 2147483647 - do not memorize)
+Router1(config-if)# ip address anythingYouWant andGateway
 
+Reasons to use Loopback? (Reason 1) 
+- When interfaces are down between 2 routers, we can use Loopback in conjunction with EIGRP to continue access
+ex. If interface Router1 f0/0 f0/1 wants to telnet with Router2 g0/0 g0/1 and g0/0 is down, we can setup EIGRP using Open Shortest Path First (OSPF) on both devices as a backdoor access (this will use f0/1 and g0/1) through a Loopback
+1) Setup Router2 loopback
+Router2#config terminal
+Router2(config)# interface loopback 0
+Router2(config-if)# ip address 2.2.2.2 255.255.252.255
+2) Setup Router1 EIGRP
+Router1#config terminal
+Router1(config)# router eigrp 100
+Router1(config-router)# network 0.0.0.0
+3) Setup Router2 EIGRP
+Router2#config terminal
+Router2(config)# router eigrp 100
+Router2(config-router)# network 0.0.0.0
+--Optional step #3.5-- Confirm EIGRP is working
+Router1# show ip eigrp neighbors 
+OR 
+Router1# show ip route
+4) Telnet to Router2
+Router1# telnet 2.2.2.2
 
+Reasons to use Loopback? (Reason 2) 
+- Routing protocols such as OSPF use the loopback to determine Router ID in the OSPF network
+1) Enable ospf on all interfaces on Router1 and place them in area 0
+Router1#configure terminal
+Router1(config)# router ospf
+Router1(config-router)# network 0.0.0.0 255.255.255.0 area 0
+Router1(config-router)# end
+--Optional step-- Show ospf 
+Router1#show ip ospf interface (brief)
+**Router ID is selected on the highest Loopback IP address, if not, the highest IP address
+**Router's name is the Router ID. This is important because if you don't use a loopback and the Router ID was selected off a physical interface and the physical interface went down, the name of the router will change.
 
+Transport Layer TCP/IP
+- IP Internet Protcol is connectionless - every packet is treated individual and separately by routers
+- IP does not gurantee delivery of packets, in correct order, or free from errors (higher layers are responsible for this)
 
+TCP/UDP
+- TCP Transmission Control Protocol - 3-way handshake, connection oriented, reliable, delivery acknowledgement (sequence number), sequenced, HTTP/E-mail/FTP
+- UDP User Datagram Protocol - connectionless, best effort/unreliability, no gurantee of delivery, no sequencing, limited error delivery (if no port # available, message can be send to sender?), VOIP/Video-Streaming
+- Allows for Session Multiplexing - single host with single IP address can communicate with mutliple device/session
+- Connection must first be established between sender and receiver before data transmission in SEGMENTS
+- MTU Maximum Transmission Unit depends on physical medium (ex. MTU of FastEthernet is 1500bytes, MTU  of TCP support 65495 bytes)
+- MSS Maximum Segment Size is the maximum segment size that TCP is willing to send in a single segment, should be set small enough to avoid IP fragmentation which leads to excessive retransmission if there is packet loss
+- TCP supports MSS and Path MTU Discovery (sender and receiver automatically determine maximum transmission - avoid fragmentation)
+- Path MTU Discovery is mandatory in IPv6
+- UDP does not support Path MTU Discovery - relies on higher layer protocols
+- TCP has Flow Control (sliding window) to avoid data being sent too quickly - data sent too quickly will be dropped and require retransmission (causes delay), UDP has no Flow Control
+- TCP has session, and once transmission is complete, session is terminated. UDP has no sessions
+- TCP every segment is transmitted is acknowledged
+- UDP Header 16bit UDP length: minimum 8 bytes, maximum 65,535 bytes (everything is 16)
 
+TCP Summary
+- Connection Oriented
+- Full duplex operation
+- Error checking (checksum in datagram to confirm this)
+- Segments are sequenced
+- Acknowledgement of receipt
+- Retransmission of data is possible
 
+Application Layer
+- File Transfer: FTP File Transfer Protocol, TFTP Trivial File Transfer Protocol, NFS Network File System
+- E-mail: POP3 Post Office Protocol 3 (receive e-mail), SMTP Simple Mail Transfer Protocol (send e-mail), IMAP Internet Message Access Protocol (receive e-mail)
+- Remote Login: Telnet (sends traffic in clear text/insecure), SSH (secure shell/secure) 
+- Network Management: SNMP Simple Network Management Protocol
+- Name Management: DNS Domain Name System (translate domain names into ip addresses)
 
+Recap 7 layers
+**Physical (1) -> Data Link (2) -> Network (3) -> Transport (4) -> Application (7)
+**(RJ45 -> MAC Address -> IP Address -> TCP/UDP -> Port Number)
 
+Socket
+- Combination of: IP address of host, port number, TCP/UDP (transport protocol used)
 
+Port Numbers:
+- 7 ping echo 
+- 20 FTP Data
+- 21 FTP 
+- 22 SSH 
+- 23 Telne
+- 53 DNS TCP/UDP (UDP used to serve request, TCP is used when response data is over 512bytes)
+- 69 TFTP 
+- 80 HTTP 
+- 115 SFTP 
+- 161 SNMP
+- 443 HTTPS 
+*Well known port numbers: 0 - 1023
+*Registered port numbers: 1024 - 49151
+*Dynamic/Private port numbers: 49152 - 65535
+*Ephemeral port numbers (short lived port used for client side of connection - temporary, only last for session) - varies based on vendor
 
+3-way TCP Handshake
+1) [Host A->Host B] Send SYN (flag), set CTL = SYN, chooses random initial sequence number (ex. 100) so it knows the next sequence number to expect from Host B, chooses port #
+2) [Host A<-Host B] Received SYN (flag), Send SYN, Send ACK (from ex. ACK = 101, next in sequence to 100), set CTL = SYN, ACK, chooses another random initial sequence number so it knows the next sequence number to expect from Host A
+3) [Host A->Host B] SYN flag = unset, set CTL = ACK, set ACK = 301, set SEQ = 101
+*SYN flag is unset confirms the 3-way TCP Handshake is completed successfully
 
+3-way TCP Handshake Simplified
+1) Host A -> Send SYN, SEQ = 100 -> Host B
+2) Host A <- Send SYN, ACK = 101, Send SEQ = 300 <- Host B
+3) Host A -> Send ACK = 301, SEQ = 101 -> Host B
 
+3-way TCP Handshake SYN/ACK Simplified
+1) Host A -> Send Sequence = 5 (Host A expects Acknowledgement of 6) -> Host B
+2) Host A <- Send Ack = 6, Send Sequence = 10 (Host B expects Acknowledgment of 11) <- Host B
+3) Host A -> Send Ack = 11, Send Sequence 6 -> Host B
 
+TCP Window Size / Fixed Windows
+- Maximum number of data segments the sender is allow to send
+Note* Above is a Window Size of "1"
+- If we increase to Window Size of "3", then Host A can send 3 SYN, but only need to receive 1 ACK. Therefore, increasing throughput
 
+TCP Flow Control
+- Prevents issue of sender overflowing the buffers of a receiver if one machine is more powerful than the other, they can negotiate the rate of transmission
+- Tells sending Host to slow down or to stop sending data until the host has its Receive Buffer Ready
 
+TCP Sliding Widnows
+- Rather than using Fixed Window Size, TCP uses sliding windows (window size, initial is small, then increase it exponentially with time) - notice how initial slow download, but then gets fast
+- When packet is dropped, Window Size may be reduced
+- Determining Window Size is either 1) Granted by receiver 2) Congestion Window (CWND) - initially set to very low value, then increases at exponential rate using "congestion avoidance" 
+
+Configure Cisco Router as DHCP Dynamic Host Configuration Protocol and enable DNS:
+Router1#configure terminal
+Router1(config)#ip domain-lookup
+Router1(config)#interface f0/0
+Router1(config-if)#ip address dhcp
+Router1(config-if)#no shutdown
+Router1#show dhcp lease [See DHCP lease]
+Router1#show dhcp server [See DHCP server]
+
+If we do not use DHCP server and without DHCP, DNS and gateway does not automatically populate, we must manually add it:
+Router1#configure terminal
+Router1(config)#ip name-server 8.8.8.8 [DNS setup]
+Router1(config)#ip route 0.0.0.0 0.0.0.0 192.168.1.249 [Gateway of last resort]
+Router1(config)#interface f0/0
+Router1(config-if)#ip address 192.168.1.1 255.255.255.0
+Router1(config-if)#no shutdown
+
+3 DHCP Mechanisms (done on DHCP server, NOT on the client PC)
+1) Automatic Allocation
+- DHCP server to assign permanent IP address to client 
+- IP address lease is set to infinity (no expiration date)
+2) Dynamic Allocation
+- What we think of, when we think DHCP
+3) Manual Allocation 
+- Preconfigure the IP address and MAC address manually on the DHCP server that is going to be allocated to a specific client
+- Different than Automatic Allocation because a Pool or Scope of addresses are created, then they are automatically allocated to devices permanently. Whereas Manual Allocation is allocated to a unique device. 
+
+Configure a Cisco Router as a DHCP Server:
+==Initial Setup==
+Router1#configure terminal
+Router1(config)#int f0/0
+Router1(config-if)#ip address 10.1.1.2 255.255.255.0 ***
+Router1(config-if)#no shutdown
+==DHCP Server setup==
+Router1(config)#ip dhcp pool enterNameOfPool
+Router1(dhcp-config)#network 10.1.1.0 255.255.255.0
+Router1(dhcp-config)#default-router 10.1.1.2 ***
+==DNS Server setup in the same DHCP Server==
+Router1(dhcp-config)#dns-server 10.1.1.2
+Router1(dhcp-config)#lease 7
+==Exclude range/scope==
+Router1(config)#ip dhcp excluded-address 10.1.1.1 10.1.1.10
+==View your DHCP pool/current pool==
+Router1#show ip dhcp pool
+Router1#show ip dhcp binding
+==Get DHCP IP from Router2==
+Router2#configure terminal
+Router2(config)#interface f0/0
+Router2(config-if)#ip address dhcp
+Router2(config-if)#no shutdown
+==To confirm Router2 is working properly==
+Router2#show ip interface brief
+Router2#show ip route
+==To name a client==
+Router2(config-if)#ip dhcp client client-id ascii nameHere
+
+IP helper address:
+- a router can be configured to accept a broadcast request for a UDP service and then forward it as a unicast to a specific IP address
+ex. Router needs to reach a DHCP server on 192.168.2.254
+Router2(config)#int f0/0
+Router2(config-if)#ip helper-address 192.168.2.254
+Router2(config-if)#no shutdown
+
+VLAN Virtual Local Area Network (Logical Switch)
+**Benefits of VLAN over switches
+- no broadcast or multicast storms
+- provides security, you cannot access certain files unless you are on a specific VLAN(logical segmentation of users)
+- easy to modify virtually, no longer a need for switching cables (no longer have to worry about physical topology - focus on logical)
+- better QoS (VoIP on its own VLAN)
+*Note: PCs do not know they are put on VLANs, all they see is standard ethernet frames. It is the switches that provide the tagging
+
+Trucking Protocol
+1) ISL Interswitch Link - Cisco Proprietary Protocol (Old)
+2) 802.1Q - Industrial Standard
+
+Trunking
+- Allows multiple VLANs to traverse a link
+
+802.1Q
+- Has a 4byte "Tag" in the header in addition to the Ethernet header
+
+Ethernet Header: [Dest][Src][Len/Etype][Data][FCS]
+802.1Q Header: [Dest][Src][Tag][Len/Etype][Data][FCS]
+Tag Frame: [TPID (0x8100) - identifies as 802.1Q frame, 16bit or 2bytes][PRI - priority 3bit, used in QoS][CFI - Chronic Format Identifier, used old days, no longer used][VLAN ID - 12bit, value of 0 = no VLAN]
+~12bit in size = 4096VLANs can be created
+**Because the frame is being altered, the FCS Frame Check Sequence will be altered and replaced in the modified frame
+
+Native VLANs
+- Native VLANs are untagged
+
+VLAN port assignments
+1) Static VLAN by Administrator 
+2) Dynamic VLAN using VLAN Membership Policy Server - allows ports to be automatically updated based on MAC address on that port
+3) Voice VLAN
+
+VTP Vlan Trunking Protocol
+- Cisco Layer 2 Protocol
+- Allows for addition, deletion and renaming of VLANs on one switch and that will propagate across trunk links to other switches
+**Avoid** headaches if not properly configured, VTP is disabled by default
+**It can only work over trunk links
 
 
 
