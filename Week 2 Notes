@@ -425,16 +425,95 @@ Switch1(config-if)#switchport mode dynamic desirable
 3) Set Switch1 to trunk mode
 Switch2(config-if)#switchport trunk encapsulation dot1q
 Switch2(config-if)#switchport mode trunk
+4) Set Switch2 
+
+==Enable VTP pruning==
+Switch(config)#vtp pruning
 
 ==Show VTP status==
 Switch#show vtp status
 
+===Simulation#1===
+- Configure Switch1 as the VTP server and Switch2 as VTP clients
+- Set the VTP domain name to cisco
+- Set the VTP password to cisco
+- Enable VTP pruning so that inter-switch broadcast replication is minimized
 
+Switch1>en
+Switch1#conf t
+Switch1(config)#vtp mode server
+Switch1(config)#vtp domain cisco
+Switch1(config)#vtp password cisco
+Switch1(config)#vtp pruning
 
+Switch2>en
+Switch2#conf t
+Switch2(config)#vtp mode client
+Switch2(config)#vtp domain cisco
 
+===Simulation#2===
+Create the following VLANs on Switch1:
+- VLAN 10 with a description "HR"
+- VLAN 20 with a description of "Sales"
+- Vlan 30 with a description of "Directors"
 
+Switch1> en
+Switch1# conf t
+Switch1(config)# vlan 10
+Switch1(config-vlan)# name HR
+Switch1(config-vlan)# vlan 20
+Switch1(config-vlan)# name Sales
+Switch1(config-vlan)# vlan 30
+Switch1(config-vlan)# name Directors
 
+===Simulation#3===
+Assume that ports are configured using the default switchport mode of access
+Assign interface FastEthernet 0/3 to VLAN 10 on Switch1
+Assign interfaces FastEthernet 0/4 through FastEthernet 0/20 to VLAN 20 on Switch1 using the interface range command
 
+Switch1> en
+Switch1# conf t
+Switch1(config)# interface f0/3
+Switch1(config-if)# switchport access vlan 10
+Switch1(config-if)# interface range fastethernet 0/4 - 20
+Switch1(config-if-range)# switchport access vlan 20
+
+===Simulation#4===
+Configure the switch as a VTP transparent
+Set the VTP domain to ICND
+
+Switch1> en
+Switch1# conf t
+Switch1(config)# vtp mode transparent
+Setting device to VTP mode transparent
+Switch1(config)# vtp domain ICND
+Changing VTP domain name from NULL to ICND
+
+===Simulation#5===
+Configure Switch1 as a VTP server and Switch2 as a VTP client
+Set the VTP domain to gns3.com
+Set the VTP password to cisco
+Enable VTP pruning
+
+Switch1> en
+Switch1# conf t
+Switch1(config)# vtp mode server
+Device mode already VTP SERVER.
+Switch1(config)# vtp domain gns3.com
+Changing VTP domain name from NULL to gns3.com
+Switch1(config)# vtp password cisco
+Setting device VLAN database password to cisco
+Switch1(config)# vtp pruning
+
+Switch2> en
+Switch2# conf t
+Switch2(config)# vtp mode client
+Setting device to VTP mode client
+Switch2(config)# vtp domain gns3.com
+Changing VTP domain name from NULL to gns3.com
+Switch2(config)# vtp password cisco
+Setting device VLAN database password to cisco
+Switch2(config)# vtp pruning
 
 
 
