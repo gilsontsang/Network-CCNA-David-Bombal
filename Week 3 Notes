@@ -1,1 +1,17 @@
+VTP Troubleshooting
+> show interface trunk
+> show vlan brief
+> show vtp status
+- Domain name is case-sensitive and must match
+- Password must match (MD5 hash)
+- Versions also must match
+
+VTP Troubleshooting 2
+> show interface switchport
+> show interface trunk
+- VTP requires trunk links
+- NO on both sides - Administrative Mode: dynamic auto 
+=> set one side to dynamic desirable
+Switch1(config)#interface g0/0 
+Switch1(config-if)#switchport mode dynamic desirable
 
