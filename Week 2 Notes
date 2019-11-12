@@ -280,9 +280,6 @@ Trucking Protocol
 1) ISL Interswitch Link - Cisco Proprietary Protocol (Old)
 2) 802.1Q - Industrial Standard
 
-Trunking
-- Allows multiple VLANs to traverse a link
-
 802.1Q
 - Has a 4byte "Tag" in the header in addition to the Ethernet header
 
@@ -305,6 +302,137 @@ VTP Vlan Trunking Protocol
 - Allows for addition, deletion and renaming of VLANs on one switch and that will propagate across trunk links to other switches
 **Avoid** headaches if not properly configured, VTP is disabled by default
 **It can only work over trunk links
+
+==See which interface is trunking==
+Switch#show interface trunk
+OR
+Switch(config-if)#do show vlan brief
+
+Trunking vs Access ports
+**Trunk ports - Permit ALL VLANs - Allows multiple VLANs to traverse a link
+**Access ports - Specify a single VLAN that is allow to transverse
+
+Make a port on a switch to be on VLAN as access port or Trunk port
+1) Create the VLAN (ex. 10)
+Switch#configure terminal
+Switch(config)#vlan 10
+2a) Make f0/0 a trunk port
+Switch(config-vlan)#interface f0/0
+Switch(config-if)#switchport trunk encapsulation dot1q
+Switch(config-if)#switchport mode trunk [allows multiple VLANs to transverse that port]
+Switch(config-if)#switchport nonegotiate [disable auto-negotiate DTP Dynamic Trunking Protocol of trunk ports dynamically]
+2b) Make f0/0 an access port
+Switch(config-if)#switchport mode access [allows a single VLAN access]
+Switch(config-if)#switchport access vlan 10 
+3) Setup VLAN 10's gateway 
+Switch(config-if)#ip address 10.1.11.254 255.255.255.0
+Switch(config-if)#no shutdown
+4) Set Default Gateway on the PC/Router if on different VLANs
+Router#configure terminal
+Router(config)#no ip routing
+Router(config)#ip default-gateway 10.1.11.254 255.255.255.0
+[optional] 5) Enable DTP Dynamic Trunk Protocol
+Switch(config-if)#switchport mode dynamic desirable
+
+Creating sub interfaces on a Router that has 1 physical interface f0/0
+1) Create sub interface f0.0/1 (virtual)
+Router#configure terminal
+Router(config)#interface fastEthernet 0/0.1
+Router(config)#encapsulation dot1Q 1 native (ex. using VLAN 1 as default)
+Router(config)#ip address 10.1.1.254 255.255.255.0
+2) Create sub interface f0.0/2
+Router(config)#interface fastEthernet 0/0.2
+Router(config)#encapsulation dot1Q 2
+Router(config)#ip address 10.1.2.254 255.255.255.0
+
+VTP VLAN Trunking Protocol
+- By default, switches belong to Null Domain and no VTP domains is configured
+- Cisco Proprietary layer 2 proptocol between VLAN 1002-4094
+- Being a layer 2 device, it will communicate trunk links (layer 2) and not through a layer 3 router
+- Does not create trunk ports but requires trunk links to send updates across switches/routers via MAC Address: 01-00-0C-CC-CC-CC (Well known multicast address)
+- Cisco Engineers however will by default disable VTP
+Benefits:
+- Create, dete or rename VLANs on one switch -> propagate to all other switches
+- Default, doesn't belong to a domain, but when it receives an advertisement, it will automatically join a VTP domain
+- Each time a change (new/delete/rename), revision number will automatically increase by 1
+
+Procedure of VTP message:
+1) When a change is made to a Switch 1, Switch 1 will send out a "Summary advertisement" to all other switches
+2) Once "Summary advertisement" is received, those subsequent switches will send a "Advertisement requests" to the Switch 1 requesting information of what was changed
+3) Switch 1 will now send that "Subset advertisement" information to all the other switches
+
+3 types of VTP messages:
+1) Summary advertisements 
+- Sent every 5 minutes or whenever a change is made
+- Used to inform a switch in summary format of latest revision number in the VTP domain
+2) Summary request/advertisement request
+- If a switch sees it is out of date in the VTP domain, it will request for new information
+3) Subset advertisements
+- Send a detailed information of changes made to VLAN database
+
+4 VTP Modes
+**Note, revision number takes presidence (not server, or client)
+1) Server (Default mode)
+- Create/Modify/Delete VLANs
+- Sends and forwards VTP advertisements
+- Can save VLAN configuration locally
+2) Client
+- CANNOT Create/Modify/Delete VLANs
+- Sends and forwards VTP advertisements
+3) Transparent 
+- Disables VTP (no synchronization), allows forward VTP advertisements
+4) Off
+- Disables VTP (no synchronization), not allow to forward VTP advertisements
+
+VLAN versions
+- VLAN 1 (Ethernet) = 1 to 1005 are supported, beyond this use "VTP Transparent Mode"
+- VLAN 2 = 1001
+
+==Create VLAN 1006==
+Switch#configure terminal
+[optional]Switch(config)#vtp domain enterNameHere
+Switch(config)#vtp mode transparent (**remember, client and server does not support any VLAN beyond 1005)
+Switch(config)#vlan 1006 
+==Erase VLANs==
+Switch#erase startup-config
+Switch#delete flash:/vlan.dat 
+==See all VLANs==
+Switch#show vlan brief
+or
+Switch#show run | i Vlan|vlan
+==Rename VLAN==
+Switch(config)#vlan 2
+Switch(config-vlan)#name exampleNameHere
+
+VTP Pruning
+- **ONLY VTP servers can use it
+- VTP allows for automatic pruning and un-pruning of links
+- improve proper allocation and bandwidth by reducing unncessary flooded traffic (broadcast, multicast, etc)
+- will only forward on trunk ports
+- NEVER pruned VLAN 1, >1002
+
+VTP Password
+- By Default, no VTP password configured
+- Only switches that have same password will synchronize with each other
+
+==Join existing VTP Domain from Switch1(ccna) to Switch2==
+*Note Switch1 f0/0 connects to Switch2 g0/0
+1) Set VTP Domain on Switch1
+Switch1(config)#vtp domain ccna
+2) Set dynamic trunk to utilize VTP Domain on the interface connecting to its 0/0
+Switch1(config)#int f0/0
+Switch1(config-if)#switchport mode dynamic desirable
+3) Set Switch1 to trunk mode
+Switch2(config-if)#switchport trunk encapsulation dot1q
+Switch2(config-if)#switchport mode trunk
+
+==Show VTP status==
+Switch#show vtp status
+
+
+
+
+
 
 
 
