@@ -15,3 +15,189 @@ VTP Troubleshooting 2
 Switch1(config)#interface g0/0 
 Switch1(config-if)#switchport mode dynamic desirable
 
+===PacketTracer Configuration - Section184===
+Switch>en
+Switch#conf t
+Switch(config)#int range g0/0-3
+Switch(config-if)#no shut
+Switch(config-if)#int vlan 1
+Switch(config-if)#ip address 10.1.100.1 255.255.255.0
+Switch(config-if)#no shut
+Switch(config-if)#vlan 10
+Switch(config-if)#ip address 10.1.10.1 255.255.255.0
+Switch(config-if)#no shut
+Switch(config-if)#vlan 20
+Switch(config-if)#ip address 10.1.20.1 255.255.255.0
+Switch(config-if)#no shut
+Switch(config-if)#end
+Switch#conf t
+Switch(config)#host S1
+S1(config)#vtp mode transparent
+S1(config)#end
+S1#copy running-config startup-config
+
+DTP Dynamic Trunking Protocol
+- Dyanmically negotiate the forming of trunks
+- Cisco proprietary protocol, but better to disable it and configure trunking manually
+2 Types of DTP:
+1) Dynamic Auto - does not initiate trunking, waits for the other side to initiate trunk
+2) Dynamic Desirable - initiates trunking
+
+===PacketTracer Configuration - Section189===
+Switch>en
+Switch#conf t
+Switch(config)#int range g0/0-3
+Switch(config-if-range)#switchport trunk encapsulation dot1q
+((Alternatively)) Switch(config-if-range)#switchport trunk allowed vlan 1 (or all)
+Switch(config-if-range)#switchport mode trunk
+Switch(config-if-range)#switchport nonegotiate
+
+For a PC/Router to talk to the switch on vlan 10 for ex., the switch must set its access port
+Switch>en
+Switch#conf t
+Switch(config)#int g1/0
+Switch(config-if)#switchport mode access
+Switch(config-if)#switchport access vlan 10
+Switch(config-if)#switchport nonegotiate
+
+===VLAN Simulations - Section193===
+Create VLAN 2 on the switch with the name of sales
+Configure interface FastEthernet 0/1 as an access port
+Put interface FastEthernet 0/1 in VLAN 2
+Enable FastEthernet 0/1
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# vlan 2
+Switch1(config-vlan)# host sales
+Switch1(config-vlan)# int f0/1
+Switch1(config-vlan)# switchport mode access
+Switch1(config-vlan)# switchport access vlan 2
+Switch1(config-vlan)# no shut
+
+===VLAN Simulations - Section194===
+FastEthernet 0/2 has a critical server connected to it
+Configure the port as an access port
+Set the speed to 100Mbps and full duplex
+Put the port into VLAN 2
+Enable the interface
+Set a description to 'Main Server'
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int f0/2
+Switch1(config-if)# switchport mode access
+Switch1(config-if)# speed 100
+Switch1(config-if)# duplex full
+Switch1(config-if)# switchport access vlan 2
+Switch1(config-if)# no shut
+Switch1(config-if)# description Main Server
+
+===VLAN Simulations - Section196===
+The Switch supports both ISL and 802.1Q. You will therefore need to configure the encapsulation to dot1q
+Manually configure the port as a trunk
+Set the native vlan to 99
+Disable Dynamic Trunking Protocol
+Allow only vlan 1,10,20,30 and 99 on the trunk
+Enable the interface
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int f0/23
+Switch1(config-if)# switchport trunk encapsulation dot1q
+Switch1(config-if)# switchport mode trunk 
+Switch1(config-if)# switchport trunk native vlan 99
+Switch1(config-if)# switchport nonegotiate
+Switch1(config-if)# switchport trunk allowed vlan 1,10,20,30,99
+Switch1(config-if)# no shut
+
+===VLAN Simulations - Section197===
+Configure Switch1 as a VTP server and Switch2 as a VTP client
+Set the VTP domain to gns3.com
+Set the VTP password to cisco
+Enable VTP pruning
+
+Switch2> en
+Switch2# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch2(config)# vtp mode client (vtp mode server on Switch1)
+Setting device to VTP mode client
+Switch2(config)# vtp domain gns3.com
+Changing VTP domain name from NULL to gns3.com
+Switch2(config)# vtp password cisco
+Setting device VLAN database password to cisco
+Switch2(config)# vtp pruning
+
+===VLAN Simulations - Section198===
+Delete the VLAN database on the switch (don't forget to reload the switch)
+
+Switch1> en
+Switch1# delete flash:vlan.dat 
+Switch1# reload
+
+===VLAN Simulations - Section199===
+Configure interface FastEthernet 0/1 to negotiate from nontrunk to trunk mode
+Both sides should be able to initiate negotiation.
+Enable the interface.
+
+Switch2> en
+Switch2# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch2(config)# int f0/1
+Switch2(config-if)# switchport mode dynamic desirable
+Switch2(config-if)# no shut
+
+===VLAN Simulations - Section200===
+Configure interface FastEthernet 0/1 to negotiate from nontrunk to trunk mode
+Only Switch 1 should be able to initiate negotiation.
+Switch 2 should only become a trunk if Switch1 initiates trunking.
+Enable the interface.
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int f0/1
+Switch1(config-if)# switchport mode dynamic desirable
+Switch1(config-if)# no shut
+
+______________________________________________________
+
+Spanning Tree (802.1D)
+- Used to avoid loops in Layer 2 (MAC Address) environments
+- Slow convergence due to its design was for bridges (uses software for calculation, rather than switches uses hardware)
+- Therefore, superseeded by Rapid Spanning Tree and Multiple Spanning Tree
+
+Types of Spanning Trees:
+1) CST Common Spanning Tree - Assumes one spanning tree for the entire bridged network regardless of # of vlans
+2) PVST Per VLAN Spanning Tree (superseeded CST) - Cisco's version of Spanning Tree, each VLAN has its own Spanning Tree
+3) MSTP Multiple Spanning Tree - Maps multiple VLANs into same Spanning Tree instances (ex. instead of 200 VLANs, having 200 spanning trees, MSTP -> 1-100 VLANs into Instance1, 101-200 VLANs into Instance2)
+4) RSTP Rapid Spanning Tree is built into MSTP - RSTP assigns roles to ports, much quicker convergence, but only support a single instance
+5) **Rapid PVST+ (Cisco switches use this by default) 
+- One Spanning Tree instance per VLAN
+- With Rapid Convergence 
+**Summary**
+10 VLANs -> Use Rapid PVS+
+100-1000+ VLANs -> MSTP
+
+BPDU Bridge Protocols Data Units
+- When running spanning tree, BPDUs are sent out of every port on switches every 2 seconds
+- Switches learn about each other through **receiving BPDUs from the same switch on multiple ports
+ex. Switch B receives multiple BPDUs on multiple ports from Switch A. So Switch B learns about Switch A - there must be a loop
+- BPDUs are 8 byte value - unique to the switch (2 byte priority field, 6 byte system ID (burnt in MAC address))
+
+3 kinds of BPDUs
+1) Configuration BPDU - used by Spanning Tree to provide information to switches
+2) Topology change BPDU - tell switches of a change
+3) Acknowledgement BPDU - confirm the receipt of a topology change in notification
+
+
+
+ 	
+
+
+ 
+
+
