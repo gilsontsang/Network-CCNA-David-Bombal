@@ -182,6 +182,10 @@ Types of Spanning Trees:
 10 VLANs -> Use Rapid PVS+
 100-1000+ VLANs -> MSTP
 
+PVST
+- Could take 50 seconds for ports to start forwarding traffic 
+**** Blocking20s > Listening15s(Sending BPDUs, not updating MAC address table) > Learning15s(Updating MAC Address table) > Forwarding
+
 BPDU Bridge Protocols Data Units
 - When running spanning tree, BPDUs are sent out of every port on switches every 2 seconds
 - Switches learn about each other through **receiving BPDUs from the same switch on multiple ports
@@ -189,15 +193,126 @@ ex. Switch B receives multiple BPDUs on multiple ports from Switch A. So Switch 
 - BPDUs are 8 byte value - unique to the switch (2 byte priority field, 6 byte system ID (burnt in MAC address))
 
 3 kinds of BPDUs
+- Uses 802.3 Ethernet
 1) Configuration BPDU - used by Spanning Tree to provide information to switches
 2) Topology change BPDU - tell switches of a change
 3) Acknowledgement BPDU - confirm the receipt of a topology change in notification
 
+==View Spanning Tree==
+Switch>en
+Switch#sh spanning-tree
 
+Decisions of Spanning Tree
+1) Determine Root Bridge
+- Root Bridge (only forwards traffic - outgoing device) is based on lowest Priority #, if its tie, then it is determined by lowest MAC Address #
+- Root Bridge default is 32768 + Vlan # (if VLAN 1, then 32769)
+2) Every non Root Bridge switch needs to determine Root Port (sh spanning-tree)
+- Root Port is its best port to get to Root Bridge based on:
+1) lowest path cost 
+2) if lowest path cost are equal, then lowest neighbour ID
+3) if lowest neighbour ID are equal, then lowest port priority
+4) if not 3) lastly lowest port ID
+~Path Cost old IEEE = 100/19/4/2, Path Cost new IEEE = 2,000,000/200,000/etc...
+3) To check this in WireShark... Bridge Identifier # > Root Identifier #, if it is the other way around, then the switch in question is the Root Bridge
 
- 	
+PVST+  Rapid per VLAN Spanning Tree Extended Bridge ID
+- Rapid PVST+ Extended Bridge ID
+- Each VLAN in Spanning Tree must be unique and based on MAC Address
+- In theory then.... for a switch that is capable of 4096VLANs would use 4096MAC Address, thats not feasible... therefore, Extended Bridge ID is used.
+[Original Bridge ID = 8 bytes]
+Bridge Priority (2bytes) | MAC Address (6bytes)
+[*Extended Bridge ID = 8 bytes]
+Bridge Priority (4bits) + Extended System ID (12bits) | MAC Address (6bytes)
+- Bridge Priority is a number you can set (default: 32768)
+- Extended System ID is populated by VLAN number
+... because bridge priority is 4 bits and in the most left, it is 0, 4096,... increments of 4096
+- Because PVST+ could take 30seconds to converge, some ports are set as "Edge Ports or Port Fast Ports" on Access Ports (do not enable on Trunk Ports - create loops) 
+**Edge Ports or Port Fast Ports immediately transitions to the forwarding state. Skips Blocking, Listening and Learning states, goes directly to Forwarding state
 
+Path Cost
+- Cost to get to root bridge/switch
+- Calculated from the sum of cost of a port and the number of links
+- Changing between IEEE Cost 1998 100/19/4/2 vs IEEE Cost 2004 2,000,000/200,000/20,000/2,000 
+-> Use command Spanning-Tree pathcost method long
 
- 
+==Change root priority of switch==
+Switch>en
+Switch#conf t
+Switch(config)#spanning-tree vlan 1 root primary
+OR 
+Switch(config)#spanning-tree vlan 1 priority 0
+==Change spanning-tree mode to pvst==
+Switch#config)#spanning-tree mode pvst
+==Change spanning-tree mode to rapid-pvst (rpvst)==
+Switch#config)#spanning-tree mode rapid-pvst [recall rapid pvst, convergence takes a lot quicker]
 
+**In real world, use rapid-pvst instead of pvst
+**rpvst > pvst > 802.1D (stp), but are backwards compatible, but will cause slowdowns because 802.1D uses timers (20>15>15)
+**PortFast/Edge Port - connects to end user devices, transition it directly to the forwarding state
+***Summary:
+pvst - per VLAN spanning tree, single root in the entire topology
+rapid-pvst - rapid pvst, gives root on per VLAN basis
+mst - multipole spanning tree, associates multiple VLAN to a spanning tree root, can have mutliple roots
+
+RSTP Rapid Spanning-Tree Protocol 
+- 802.1W
+- Not based on timers
+- *NEW* Port role assignments and port states
+- *NEW* BPDU format and BPDU processing
+- *NEW* Uses bridge-bridge handshake mechanism, which allow ports to move directly to forwarding
+- *NEW* different Topology Change Notification and processing procedure
+
+3 Port States in RSTP 802.1W
+1) Learning
+2) Forwarding
+3) Discarding
+
+*NEW* Port role assignments and port states------------
+802.1W vs 802.1D:
+1) Port State
+Discarding  = Disabled, Blocking, Listening
+Learning = Learning
+Forwarding = Forwarding
+2) Port Roles
+- A port's role is determind based on the usefulness of the BPDUs that are receivied
+- A BPDUs that are more useful, are the ones with lower path cost
+a) Root Port (FWD) - port that is closest to the root bridge (switch) in terms of path cost
+- root port leads towards the root bridge
+b) Designated Port (FWD) - port that is the best port on the root bridge (switch) 
+- designed port leads away of the root bridge
+c) Alternative Port (BLK) - port that is blocked because it is receiving more useful BPDUs from another bridge
+d) Backup Port (BLK) - port that is blocked because it is receiving more useful BPDUs from the same brige it is on
+
+==Change Half-duplex to Full-duplex==
+*Notice "Type" is "Shr" (shared), we need to change this to point-to-point 
+P2p" for full-duplex
+Switch#conf t
+Switch(config)#int g0/0
+Switch(config-if)#spanning-tree link-type point-to-point
+
+Portfast vs Edge Ports
+- PortFast does not lose its edge port status when it receives BPDU, generates topology changes
+- Edge Ports loses its edge port status  when it receives BPDU, does not generate topology changes
+
+*NEW* BPDU format and BPDU processing------------
+P2p 
+- uses Proposal/Agreement Handshake Sequence to quickly transition ports to achieve faster convergence whereas 802.1D waits for timer to expire
+
+- *NEW* RSTP BPDU now includes 
+Bit 0 - Topology Change
+Bit 1 - Proposal
+Bit 2-3 - Port Role
+Bit 4 - Learning
+Bit 5 - Forwarding
+Bit 6 - Agreement
+Bit 7 - Topology Change ACK
+
+BPDU Processing - must use p2p
+1) Root switch p0 send "Proposal" to Switch A p1
+2) Switch A receives proposal on p1, makes sure its ports are in sync making its ports "blocking state" or "edge port". Switch A will now unblock p1
+3) Switch A replies with an "Agreement"
+4) Root switch can immediately unblock p0, transition to forwarding
+**The proposal agreement is very fast as it does not rely on timers
+**This handshake propagates quickly towards edge of network, and quickly restores connectivity after a change in topology
+**If agreement is not received after sent proposal, it transition back to traditional 802.1D listening-learning sequence
 
