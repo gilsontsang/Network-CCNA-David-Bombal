@@ -316,3 +316,143 @@ BPDU Processing - must use p2p
 **This handshake propagates quickly towards edge of network, and quickly restores connectivity after a change in topology
 **If agreement is not received after sent proposal, it transition back to traditional 802.1D listening-learning sequence
 
+MSTP Downside
+- Protocol is more complex than usual STP, requires additional training of staff
+- Interaction with legacy bridges is sometimes challenging
+- Only useful for high number of VLANs
+
+STP Summary:
+1) STP
+- 802.1D standard
+- One ST per network 
+- Slow convergence
+2) PVST+ 
+- Cisco Proprietary standard
+- One ST per VLAN
+- Slow convergence
+3) RSTP
+- 802.W standard
+- One ST per network
+- Fast convergence
+4) Rapid PVST+
+- Cisco Proprietary standard
+- Upgrade from RSTP, One ST per VLAN with fast convergence and load sharing
+ex. 200 VLANs, would require 200 instances of ST
+5) MSTP
+- 802.1s
+- One for Multiple VLANs
+- Upgrade from Rapid PVST+, with low resources because of resource sharing via multiple VLANs with fast convergence
+"Instance of ST, then map various VLANs to that instance"
+ex. 200 VLANs, could use 2 instances to do load sharing of 100 VLANs each (lower memory and CPU requirements)
+
+BPDU Guard
+- Security mechanism of ST to protect the ST network
+- ex. a hacker plugging into the switch, making it the root of the ST to analyze the traffic
+
+How BPDU Guard works?
+- Disables a port if BPDU is received on that port or portFast
+- Because, portFast should be connected to a user's device, it should not be connected to another switch
+
+2 ways to configure BPDU Guard  (through CLI)
+1) Per Interface basis
+Switch(config)#spanning-tree portfast 
+2) Configure it globally on a switch 
+Switch(config)#spanning-tree portfast edge bpduguard
+
+__________________________________________________________
+
+===VLAN Simulations - Section222===
+Enable PortFast on all non-trunking interfaces
+
+Switch1(config)# spanning-tree portfast default
+
+===VLAN Simulations - Section223===
+Enable PortFast on FastEthernet 0/4 and enable the interface
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int f0/4
+Switch1(config-if)# spanning-tree portfast default
+Switch1(config-if)# no shut
+
+===VLAN Simulations - Section224===
+Configure the spanning tree mode as Rapid PVST+ on both switches.
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# spanning-tree mode rapid-pvst
+
+===VLAN Simulations - Section225===
+Configure switch1 as the primary root for VLAN 1
+Configure switch2 as the secondary root for VLAN 1
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# spanning-tree vlan 1 root primary
+Switch2(config)# spanning-tree vlan 1 root secondary
+
+===VLAN Simulations - Section226===
+Configure switch with the second lowest possible priority
+Assume that Extended System IDs are used
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# spanning-tree vlan 1 priority 4096
+
+===VLAN Simulations - Section226===
+Configure the switch with a default gateway of 10.1.1.1
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# ip default-gateway 10.1.1.1
+
+__________________________________________________________
+
+CDP Cisco Discovery Protocol (hoewver, LLDP Link Layer Discovery Protcol is industry standard)
+- Layer 2 
+- See how devices are directly connected (one jump) to each other that are running cdp
+- Useful, but security concerns
+
+CDP (Cisco devices ONLY) /LLDP (Non-Cisco devices) Commands
+==See CDP/LLDP neighbours==
+R1#show cdp neighbors or R1#show cdp neighbors details [show lldp neighbors]
+==Disable CDP/LLDP on globally on device==
+R3(config)#no cdp run [no lldp run]
+==Disable CDP on interface f0/1==
+R3(config)#int f0/1
+R3(config-if)#no cdp enable
+==Configure CDP==
+R3(config)#cdp ___ (use ?)
+
+__________________________________________________________
+
+===VLAN Simulations - Section234===
+Disable CDP globally on the router
+But enable it on Ethernet 0
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# no cdp run
+Router1(config)# int ethernet 0
+Router1(config-if)# cdp enable
+
+===VLAN Simulations - Section235===
+Enter the relevant commands on the router to answer the sets of question below.
+(1) What interface on R2 is connected to R1?
+(2) What type of router is R5?
+> Router2> en
+> Router2# show cdp nei
+
+===VLAN Simulations - Section236===
+Enter the CDP command that displays information about R3 only and then answer the following questions.
+> Router2# show cdp entry R3 
+**Note: version of CDP = advertisement version
+
+
+
