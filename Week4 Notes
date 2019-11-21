@@ -1,0 +1,247 @@
+Setting up Root and VLANs for (Picture1) - load sharing
+- Switch1 is the root for vlan 1 and 10 and is a backup for vlan 20.
+- Switch2 is the root for vlan 20 and backup for vlan 1 and 10.
+1) Set Switch1 to be the root for vlan 10
+S1(config)#spanning-tree vlan 10 priority 0
+**Remember, Priority # = prioritySetting# + VLAN#... so priority 0 on vlan10 = priority10
+2) Set Switch2 to be the root for vlan 20
+S2(config)#spanning-tree vlan 20 priority 0
+3) Set Switch1 a backup for vlan 20 
+S1(config)#spanning-tree vlan 20 priority 4096 (can't use 1 - increments)
+4) Set Switch2 a backup for vlan 1 and 10
+S2(config)#spanning-tree vlan 1 priority 4096
+S2(config)#spanning-tree vlan 10 priority 4096
+==Result==
+Switch1(vlan1)= Desg, Desg, Desg, Desg
+Switch1(vlan10)= Desg, Desg, Desg, Desg
+Switch1(vlan20)= Root, Altn (BLK), Desg, Desg
+Switch2(vlan1)= Root, Altn (BLK), Desg, Desg
+Switch2(vlan10)= Root, Altn (BLK), Desg, Desg
+Switch2(vlan20)= Desg, Desg, Desg, Desg
+
+**Management traffic such as cdp, and lldp are still transmitted and received on blocked ports (i.e. ports that are discarding)
+
+Link Aggregation / Etherchannel (for when there are 2 links between switches - does not work if there is only 1 link)
+- When there is too much traffic from Switch2 -> Switch1 or vice versa, we want to make ST see 2 physical ports as a single port and doesn't block either of the ports
+Switch1 =G0/1= Switch2
+Switch1 =G0/0 = Switch2
+ex. for vlan20, G0/0 is Root/FWD but G0/1 is Altn/BLK
+==Set Switch1's G0/0 and G0/1 to be link aggregation or etherchannel==
+Switch1#conf t
+Switch1(config)#int range g0/0-1
+Switch1(config-if-range)#shutdown
+Switch1(config-if-range)#switchport trunk encapsulation dot1q
+Switch1(config-if-range)#switchport mode trunk
+Switch1(config-if-range)#channel-group 1 mode active (ex. using random channel 1 and using LACP (active))
+*Note: LACP is industry standard, PAgP is Cisco proprietary
+*Note: Do not set both side to passive (waiting for the other side to become active), one side or both sides must be active
+==Set Switch1's ST on G0/0 and G0/1 to be P2p==
+*Recall, P2p is like full-duplex to Shared being half-duplex (uses timers, blocking, listening, learning and forwarding)
+Switch1(config)#int range g0/0-1
+Switch1(config-if-range)#spanning-tree link-type point-to-point
+==Make sure it is set properly by viewing this command==
+Switch1#show etherchannel summary
+Switch1#show etherchannel port-channel
+*Note: Switch1or2#sh spanning-tree vlan 1/10/20, all ports are now FWD in Desg 
+*Note: cost = 3 instead of 4 because it is the better path
+
+Link Aggregation / Etherchannel (Benefits)
+- Redundancy = if one of the ports go down, the port channel will still be up
+- Higher throughput = ST not blocking one of the ports
+- Load balance
+
+***
+Furthermore on "channel-group X mode ____"
+active - LACP unconditional
+passive - LACP only if LACP device is detected
+desirable - PAgP unconditional
+auto - PAgP only if PAgP device is detected
+***
+_______________________________________________________
+
+===VLAN Simulations - Section247===
+Configure a layer2 Etherchannel between the switches as follows:
+
+Configure interface fa0/23 and fa0/24 as 802.1Q trunk links between Switch1 and Switch2. Configure interfaces individually (fa0/23 and then fa0/24)
+Set the trunk encapsulation to dot1q and then manually configure the port as a trunk port
+Configure a Layer 2 EtherChannel between Switch1 and Switch2 on the inter-switch links. (fa0/23 and fa0/24)
+Use Port-Channel no 12 (Tip: This is number twelve)
+These links should not use dynamic EtherChannel negotiation.
+
+Switch2> en
+Switch2# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch2(config)# int f0/23
+Switch2(config-if)# switchport trunk encapsulation dot1q
+Switch2(config-if)# switchport mode trunk 
+Switch2(config-if)# int f0/24
+Switch2(config-if)# switchport trunk encapsulation dot1q
+Switch2(config-if)# switchport mode trunk
+Switch2(config-if)# int f0/23
+Switch2(config-if)# channel-group 12 mode on
+Switch2(config-if)# int f0/24
+Switch2(config-if)# channel-group 12 mode on
+
+===VLAN Simulations - Section248===
+Configure interface fa0/23 and fa0/24 as 802.1Q trunk links between Switch1 and Switch2
+Configure the interfaces individually.
+Configure a Layer 2 EtherChannel between Switch1 and Switch2 on the inter-switch links. (fa0/23 and fa0/24).
+Use PagP for dynamic negotiation
+Switch1 should initiate negotiation and Switch2 should respond
+Use Port-Channel no 12
+
+**Basically... same as above except:
+Switch1(config-if)# channel-protocol pagp (or lacp if it is asking for lacp)
+Switch1(config-if)# channel-group 12 mode desirable
+
+===VLAN Simulations - Section249===
+Configure interface fa0/23 and fa0/24 as 802.1Q trunk links between Switch1 and Switch2
+Configure a Layer 2 EtherChannel between Switch1 and Switch2 on the inter-switch links. (fa0/23 and fa0/24)
+Use LACP for dynamic negotiation
+Switch1 should initiate negotiation and Switch2 should respond
+Use Port-Channel no 12
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int f0/23
+Switch1(config-if)# switchport trunk encapsulation dot1q
+Switch1(config-if)# switchport mode trunk
+Switch1(config-if)# int f0/24
+Switch1(config-if)# switchport trunk encapsulation dot1q
+Switch1(config-if)# switchport mode trunk
+Switch1(config-if)# int f0/23
+Switch1(config-if)# channel-protocol lacp
+Switch1(config-if)# channel-group 12 mode active
+Switch1(config-if)# int f0/24
+Switch1(config-if)# channel-protocol lacp
+Switch1(config-if)# channel-group 12 mode active
+
+(??) ===VLAN Simulations - Section250===
+Configure interface fa0/23 and fa0/24 on Switch1 and Switch2 as a Layer 3 EtherChannel.
+Use Port-Channel no 12 and subnet 172.16.10.0/24
+Switch1 = 172.16.10.1 ans Switch2 = 172.16.10.2
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# interface port-channel 12
+Switch1(config-if)# no switchport
+Switch1(config-if)# ip address 172.16.10.1 255.255.255.0
+Switch1(config-if)# int f0/23
+Switch1(config-if)# no switchport
+Switch1(config-if)# channel-group 12 mode on
+Switch1(config-if)# int f0/24
+Switch1(config-if)# no switchport
+Switch1(config-if)# channel-group 12 mode on
+
+~The "no switchport" command puts the interface in L3 mode (known as "routed port") and makes it operate more like a "router interface" rather than a "switch port".
+
+_____________________________________________
+
+*Recall, if a port is link-type = "Shared", we can make convergence faster by making the port into a portfast
+Switch3(config)#int g0/2
+Switch3(config-if)#spanning-tree portfast
+
+**Summary: To optimize your ST
+1) Set all links to P2p Point-to-point
+2) Set your edge ports(industry)/portfast (cisco) (ports connected to your edge devices) as Shared Edge
+
+**Turning an interface (or switch) into a router
+Switch1(config-if)#no switchport
+*With routers, you can set ip address to interfaces (ex. g0/0), but with switches, you can only set VLANs
+
+==Enable eigrp==
+Switch1#conf t
+Switch(config)#router eigrp 1
+Switch(config-router)#network 0.0.0.0
+==Configure Layer 3 switch Switch1 to allow routes advertised to Layer 3 switch Switch2 and vice versa==
+Switch1#conf t
+Switch1(config)#router eigrp 100
+Switch1(config-router)#network 0.0.0.0
+Switch1(config-router)#no auto-summary
+Switch2#conf t
+Switch2(config)#router eigrp 100
+Switch2(config-router)#network 0.0.0.0
+Switch2(config-router)#no auto-summary
+
+**Summary of Switches & Routers:
+- switchport is a Layer 2 Interface
+- no switchport is a router Layer 3 Interface
+- switch's IP address is configured via vlan (ex. vlan1)
+- router's IP address is configured via interfaces (ex. g0/0)
+- router ports do not run vlans, STP, DTP
+- routers' interfaces are shut down by default
+- routers block broadcast by default
+*router ports are used between routers and switches
+*vlans, switchports are used when traffic needs to be tagged throughout the network
+
+==Created vlan 2 & 3, then place interface g0/0 in vlan2, g0/1 in vlan3==
+Switch(config)#vlan 2
+Switch(config-vlan)#vlan 3
+Switch(config-vlan)#end
+Switch#config t
+Switch(config)#int g0/0
+Switch(config-if)#switchport access vlan 2
+Switch(config-if)#int g0/1
+Switch(config-if)#switchport access vlan 3
+==Set IP address to the vlans on SWITCHES==
+Switch(config)#int g0/0
+Switch(config-if)#ip address 10.1.2.254 255.255.255.0
+Switch(config-if)#no shut
+Switch(config-if)#int g0/1
+Switch(config-if)#no shut
+Switch(config-if)#ip address 10.1.3.254 255.255.255.0
+==Set IP address to the vlans on PC==
+PC(config)#int g0/0
+PC(config-if)#no shut
+PC(config-if)#ip address 10.1.2.1 255.255.255.0
+PC(config-if)#exit
+PC(config)#no ip routing [[since acting as PC but its really a router]]
+PC(config)#ip default-gateway 10.1.2.254
+
+==To enable layer 3 IP routing==
+Switch(config)#ip routing
+
+==Random troubleshooting - Show commands==
+Switch1#show cdp neighb
+Switch1#show ip interface brief
+Switch1#show ip protocol
+Switch1#show ip eigrp int
+Switch1#show interface trunk
+Switch1#show vlan brief
+Switch1#show vtp status
+Switch1#show controllers serial X
+Switch1#show mac address-table
+Switch1#debug ip icmp
+
+Routed vs Routing Protocols
+1) Routed 
+- IPv4, IPv6 
+- Carry user information
+?- Each router making independent decision in determining path
+2) Routing
+- EIGRP (bandwidth & delay), OSPF (bandwidth), RIP (hopcount), ISIS, BGP Border Gateway Protocol (largest in world)
+- Determine best route between networks - chooses the best path
+- Routing protocols are used to automatically advertise routing between networks and that's how routers learn about the available networks in a topology
+- If a router receive traffic going to IP address A.A.A.A, but A.A.A.A doesn't match a network in the router's routing table, the packets will be dropped - applies specifically to unicast routing based on destination IP address
+
+Routed Protocols
+- Are independent of each other
+- IPv4 could be in different subnet, but IPv6 could be in same subnet. Therefore, even if IPv6 can ping each other, IPv4 might not be able to
+- "ships in the night" - what one ship is doing at night is different than what another ship is doing at night
+- Dynamic Routes - uses routing protocols EIGRP, OSPF, BGP...
+
+Default route - similar to default gateway, special static route. When router does not know where to send it, it will point your router to a gateway of last resort
+
+
+
+
+
+
+
+
+
+
+
+
