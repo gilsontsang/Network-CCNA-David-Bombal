@@ -231,13 +231,135 @@ Routed Protocols
 - IPv4 could be in different subnet, but IPv6 could be in same subnet. Therefore, even if IPv6 can ping each other, IPv4 might not be able to
 - "ships in the night" - what one ship is doing at night is different than what another ship is doing at night
 - Dynamic Routes - uses routing protocols EIGRP, OSPF, BGP...
+- EIGRP - Cisco Proprietary
+- OSPF - Industry Stardard - multivendor
 
 Default route - similar to default gateway, special static route. When router does not know where to send it, it will point your router to a gateway of last resort
 
+3 Systems -
+1) AS Autonomous System
+- Grouping of network under one administrative domain
+2) IGPs Internal Gateway Protocols - RIP, EIGRP, OSPF
+- Routing protocol used within an AS
+- These 
+3) EGP External Gateway Protocols - BGP Border Gateway Protocol
+- Routing protocol used between AS going through ISP
 
+To use BGP:
+- You must have/apply for an AS number similar to IP Address
 
+Routing Protocols:
+1) Distance Vector - signs of road direction
+- Determines direction (next hop address) and distance (hop count)
+- Routing by rumour (could make bad choices based on word of mouth)
+Algorithm: Bellman-Ford algorithm (relys on periodic updates and triggers)
+Advantage: Easy to configure
+Disadvantage: Limited visibility (only knows what neighbours tell them - routing by rumour), does not know the entire path
+2) Link State
+- Each router originates information about itself, its directly connected links and the state of those links, it is then advertised to all routers in its area - these routers make a copy of this information so all routers share the same information
+Algorithm: SPF Shortest Path First
+Advantage: Visibility of entire network
+Diadvantage: Difficult to configure, requires more memory
+3) Advanced Distance Vector
+- EIGRP, takes best of distance vector (easy to configure) and forms neighbour relationships (similar to Link State protocol)
+Advantage: Easy to configure, updates quickly
+Diadvantage: Cisco Proprietary
+4) Administrative Distance
+? If 2 routing protocols conflict, which way to forward traffic 
+- routing protocol uses the route with the lowest Administrative Distance
+? Order of believe (range: 0-255)
+(1) itself 0 - administrative distance = 0 
+(2) next hop = 1 
+(3) Internal EIGRP = 90 
+(4) OSPF = 110
+(5) RIP = 120
+(6) Unknown = 255
+- EIGRP is lower because it considers bandwidth and delay, whereas RIP only takes into consideration of hop count
 
+Classful routing
+- Do not advertise subnet mask to other routers /24? /8?
+- Assumes consistency of subnet mask
+- Not scalable, deployable - this is why RIPv1 is no longer used
+~Auto Summarization: when moving from Class A 10.1.1.0/24 to Class B, it will summarize its advertisement as 10.0.0.0 /8 because it is Class A network
 
+Classless routing
+- Advertise subnet mask
+- Support VLSM Variable Length Subnet Mask (mask does not have to be the same)
+- Summary routes can be manually configured
+
+**Distance Vector vs Link State routing protocol
+Distance Vector = Road sign
+Link State = Road map
+
+Link State routing protocol
+- Floods network with LSAs Link State Advertisements
+- Runs SPF Shortest Path First algorithm from their perspective to the destination compared to the topological database (all routers in an area share the same database with all the links and link state), then puts the best route into their routing table
+- OSPF, ISIS Intermediate System - Intermediate System
+
+OSPF Hierarchy
+- Breaks a single AS into multiple areas, as a result:
+1) reduction in routing table
+2) hides internal changes (does not need to rerun SPF algorithm when a network goes down)
+3) reduces flooding
+- AS "border routers" - connects OSPF to external AS
+- AS routers within the border are "backbone/internal routers"
+- "LSAs Link State Advertisements" are contained within its area
+- "Summary LSAs" are propagated to other areas
+
+Link State routing (Benefits)
+- Fast convergence
+- Less suspectible to routing loops because of their great visibility of their network
+- Link State packets are sequenced and acknowledged (if not received, it will retransmitt)
+- Hierarchical design enables optimization of resources
+- Can scale better than distance vector routing protocols
+
+Link State routing (Drawbacks)
+- Demands more resources (memory, CPU)
+- Configuration and design can be complex
+
+==Configure static route==
+Topology: R1 f0/0 (10.1.1.1/24) <-> R2 f0/0 (10.1.1.2/24) <-> R2 f0/1 (10.1.2.1/24) <-> R3 f0/0 (10.1.2.2/24) <-> R3 Loopback (3.3.3.3/32)
+R1#show ip route
+->FORWARD
+R1#conf t
+R1(config)#ip route destinationIP destinationGateway nextHopPortIPAddress
+R1(config)#ip route 10.1.2.0 255.255.255.0 10.1.1.2
+<-BACKWARD
+R3#conf t
+R3(config)#ip route 10.1.1.0 255.255.255.0 10.1.2.1
+==Configure static route for R2 to R3 Loopback==
+R2#conf t
+R2(config)#ip route 3.3.3.3 255.255.255.255 10.1.2.2
+**Note this also works, but matches other addresses too... so watch out: ip route 3.3.3.0 255.255.255.0 10.1.2.2 
+==Disable the above static route==
+R2(config)#no ip route 3.3.3.3 255.255.255.255 10.1.2.2
+==Next hop command==
+R2#show ip cef
+==Ping source==
+R1#ping x.x.x.x source y.y.y.y
+
+Router Configurations
+==Enable DNS and set it to DNS server 8.8.8.8==
+R1#conf t
+R1(config)#ip domain-lookup
+R1(config)#ip name-server 8.8.8.8
+==Set default route==
+R1(config)#ip route 0.0.0.0 0.0.0.0 yourNextHopRouter
+==Set next hop router at gateway of last resort 192.168.0.254==
+R1(config)#ip route 0.0.0.0 0.0.0.0 192.168.0.254
+==Set administrative distance to 100 (default is 1)==
+R1(config)#ip route 0.0.0.0 0.0.0.0 192.168.0.254 enterAdminDistanceHere
+R1(config)#ip route 0.0.0.0 0.0.0.0 192.168.0.254 100
+
+**If IP routing is enable on a switch, we use a routing protocol
+**If IP routing is disabled on a switch, we use ip default gateway to allow a switch to send traffic to a remote subnet
+==Layer 2 Switch (no ip routing - disable by default) - requires==
+S1(config)#ip default-gateway 10.1.1.254
+==Layer 3 Switch (ip route) - requires==
+S1(config)#ip route 0.0.0.0 0.0.0.0 10.1.1.254
+
+**Traffic will only route to the longest match (i.e. it will choose 5.5.5.5 255.255.255.255 over 5.5.5.0 255.255.255.0)
+**If 2 equal entries (5.5.5.5 255.255.255.255 & 5.5.5.5 255.255.255.255), then they will be load balancing - each path will get an entry
 
 
 
