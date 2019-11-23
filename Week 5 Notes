@@ -1,0 +1,206 @@
+RIP Routing Information Protocol
+- Small Business
+- Distance Vector routing protocol
+- Determines best path based on hop count (limit to 15 hops)
+- Allows for load balancing across equal paths (4 is default)
+- Easy to configure, no scalability, not power demanding
+- Sends update by default every 30s
+- Default RIP multicast address 224.0.0.9
+- RIP uses UDP port 520
+
+==Enable RIP v2==
+R1#conf t
+R1(config)#router rip
+R1(config-router)#version 2
+==Setup RIP v2 Networks==
+R1(config-router)#network 1.0.0.0
+R1(config-router)#network 10.0.0.0 
+**Any interface on the router within the network range will be assigned RIP automatically through classful boundaries
+==Disable auto-summary - for network IP Address conflicts==
+ex. R1 loopback is 1.1.1.1/32 (network 1.0.0.0) and R3 loopback is 1.1.1.2/32 (network 1.0.0.0) and R2 is between R1 and R3.
+R1(config-router)#no auto-summary 
+==Disable a router's interface f0/1 from advertising routes, but still able to receive routes==
+R1(config-router)#passive-interface f0/1
+==Advertise a router as the default, gateway of last resort==
+*R1<->R2<->R3(f0/1)<->Internet
+*Now, R3 is automatically set for R1 and R2 as the gateway of last resort
+R3(config-router)#default-information originate (advertise default route to all routers)
+==Enable DHCP==
+R3(config-router)#int f0/1
+R3(config-if)#ip address dhcp
+==Enable DNS==
+R3(config-if)#exit
+R3(config)#ip domain-lookup (enable DNS)
+R3(config)#ip name-server 8.8.8.8 (setting DNS)
+==Change RIP timers==
+R3(config)#router rip
+R3(config-router)# timers ______
+**General rule of thumb, don't change timers. If timers are changed, make them all consistent
+==Misc==
+R3#debug ip rip
+R3#sh ip route
+R3#sh ip rip database
+R3#sh ip protocols
+R3#sh run | section rip
+__________________________________________________________
+
+===VLAN Simulations - Section303===
+Enable RIP on the routers in the diagram
+Advertise the FastEthernet (192.168.1.1) interface first and then the Serial interface (10.1.1.1)
+Set RIP to version 2
+Ensure that Router1 advertises routes correctly
+...
+Advertise the FastEthernet (192.168.2.1) interface first and then the Serial interface (10.1.1.1)
+Advertise the FastEthernet (192.168.3.1) interface first and then the Serial interface (10.1.1.1)
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router rip 
+Router1(config-if)# network 192.168.1.0
+Router1(config-if)# network 10.0.0.0
+Router1(config-if)# version 2
+Router1(config-if)# int s0/1
+Router1(config-if)# no ip split-horizon 
+
+Router2> en
+Router2# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router2(config)# router rip
+Router2(config-if)# network 192.168.2.0
+Router2(config-if)# network 10.0.0.0
+Router2(config-if)# version 2
+...
+Router3(config)# router rip
+Router3(config-if)# network 192.168.3.0
+Router3(config-if)# network 10.0.0.0
+Router3(config-if)# version 2
+
+
+===VLAN Simulations - XX ===
+> Display the routing protocols enabled on the router
+Router1> en
+Router1# show ip protocols
+
+> Display the routing table
+Router1> en
+Router1# show ip route
+
+> Display RIP updates in real time
+Router1> en
+Router1# debug ip rip
+
+
+===VLAN Simulations - 308 ===
+Enable RIP
+An IP address of 172.16.1.24 /16 is configured on Ethernet 0. Advertise this network in RIP.
+Set the RIP version to 2.
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router rip
+Router1(config-router)# network 172.16.0.0
+Router1(config-router)# version 2
+
+
+===VLAN Simulations - 308 ===
+Enable RIP on Router1 only. Router2 has already been configured.
+An IP address of 172.16.1.1/24 is configured on Ethernet 0/0. Advertise this network in RIP.
+An IP address of 10.10.10.10/24 is configured on Serial 1/0. Advertise this RIP
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router rip 
+Router1(config-router)# network 172.16.0.0
+Router1(config-router)# network 10.0.0.0
+_____________________________________________
+
+==InterVLAN routing==
+PC1 <-> Switch <-> PC2
+	^R1
+
+Configure PC1 with 10.1.2.1 /24 in VLAN2
+Configure PC2 with 10.1.3.1 /24 in VLAN3
+Configure R1 with 10.1.1.254 /24 in VLAN1, 10.1.2.254 /24 in VLAN2, 10.1.3.254 /24 in VLAN3
+Make sure PC1 can ping PC2 using R1 as "router on a stick"
+
+PC1>ip 10.1.2.1 255.255.255.0 10.1.2.254
+
+PC2>ip 10.1.3.1 255.255.255.0 10.1.3.254
+
+R1>en
+R1#conf t
+R1(config)#int f0/0.1
+R1(config-subif)#encapsulation dot1q 1 native (need to configure this VLAN first)
+R1(config-subif)#ip address 10.1.1.254 255.255.255.0
+R1(config-subif)#int f0/0.2
+R1(config-subif)#encapulation dot1q 2
+R1(config-subif)#ip address 10.1.2.254 255.255.255.0
+R1(config-subif)#int f0/0.3
+R1(config-subif)#encapulation dot1q 3
+R1(config-subif)#ip address 10.1.3.254 255.255.255.0
+
+__________________________________________________________
+
+===VLAN Simulations - Section313===
+Configure the SVI for VLAN 10 with IP address 10.1.1.1 255.255.255.0
+Configure the SVI for VLAN 20 with IP address 10.2.2.1 255.255.255.0
+Enable ip routing on the switch
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int vlan 10
+Switch1(config-if)# ip address 10.1.1.1 255.255.255.0
+Switch1(config-if)# int vlan 20
+Switch1(config-if)# ip address 10.2.2.1 255.255.255.0
+Switch1(config-if)# ip routing
+
+__________________________________________________________
+
+===VLAN Simulations - Section314===
+**Note: Routed Port = Access Port
+Configure Fa0/10 on Switch1 as a routed port
+Use the ip address 10.1.1.1 255.255.255.0 on interface Fa0/10
+
+Switch1> en
+Switch1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Switch1(config)# int f0/10
+Switch1(config-if)# no switchport
+Switch1(config-if)# ip address 10.1.1.1 255.255.255.0
+
+__________________________________________________________
+
+Classful networks A,B,C 
+- Not scalable
+- RIPv1, IGRP
+
+CIDR Classless Interdomain Routing
+- Scalable
+- Based on VLSM Variable Length Subnet Mask 
+- RIPv2, EIGRP, OSPF
+
+Summarization
+- Instead of sending all of the advertisements of IPs on a network to another network, we can send a single advertisement
+- Hides topology, if a single router goes down inside a network, the other network won't know about it
+----
+ex. 10.1.10/24 - 10.1.200.0/24 can be summarized into network 10.1.0.0 /16. Full connectively can remain estbalished with 10.1.0.0 /16
+----
+ex. 172.16.32.0/24 - 172.16.63.0/24 can be viewed as follows...
+172.16.32.0 172.16. 0010 0000 . 0
+172.16.63.0 172.16. 0011 1111 . 0 
+So... we have 0010, or 32. Therefore, the summary address will be 172.16.32.0 /19
+----
+ex. 172.16.64.0/24 - 172.16.127.0/24... NOTICE....
+** It's always just the first bit, therefore 172.16.64.0  /18
+
+
+
+
+
+
+
+
