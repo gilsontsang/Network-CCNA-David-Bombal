@@ -181,7 +181,8 @@ Classful networks A,B,C
 CIDR Classless Interdomain Routing
 - Scalable
 - Based on VLSM Variable Length Subnet Mask 
-- RIPv2, EIGRP, OSPF
+- **RIPv2, **EIGRP, OSPF
+**Acts as Classful by default, you need to use "no auto-summary" command
 
 Summarization
 - Instead of sending all of the advertisements of IPs on a network to another network, we can send a single advertisement
@@ -197,10 +198,100 @@ So... we have 0010, or 32. Therefore, the summary address will be 172.16.32.0 /1
 ex. 172.16.64.0/24 - 172.16.127.0/24... NOTICE....
 ** It's always just the first bit, therefore 172.16.64.0  /18
 
+Classful Routing - assumes everyone is using the same network mask, summary routes are automatic
+Classless Routing - includes networkmask, summary routes can be manually configured
 
+Auto Summarization occurs when:
+- Cross classful boundaries class A/B/C
+- Cross major network boundaries 10.0.0.0 to 11/12.0.0.0
 
+How will a router choose its route?
+1) Choose longest match -> Most specific. /27 is more specific than /16
+2) If IP address and mask is all the same, then it will be decided by lowest administrative distance (EIGRP > OSPF > RIPv2)
 
+==Enable OSPF==
+R1#config t
+R1(config)#router ospf 1
+R1(config-router)#network 0.0.0.0 255.255.255.0 area 0
+==Enable EIGRP==
+R1(config)#router eigrp 1
+R1(config-router)#network 0.0.0.0
+==Show commands==
+R1#show ip route
+R1#show ip bgp summary
+R1#show ip bgp neigh
+==No shutdown bgp neighbour==
+R1(config)#router bgp 1
+R1(config-router)#no neighbor 10.1.1.2 shutdown
 
+Administrative distance
+eBGP = 20
+EIGRP = 90
+OSPF = 110
+RIP = 120
+iBGP = 200
+
+"Rib Failure" 
+- from 'show ip bgp' indicates a route learned from a neighbor has lower administrative distance (static or other IGP Internet Gateway Protocol) in the routing table, therefore BGP route has failed to install into IP routing table (RIB Routing Information Base)
+
+First Hop Redundacy Protocols
+**Think of your PC having 2 default gateways, but 2 default gateways is set on the switch/router rather than the PC itself
+- Provides hop redundacy - incase one network gateway goes down, there is a second gateway available through the use of a standby virtual router
+- Highest priority (100 is default, therefore we will set 200 as the highest priority) will be the 'active forwarder/router' for the VLAN
+1) HSRP Hop Standby Routing Protocol
+- Cisco Proprietary
+2) VRRP Virtual Router Redundacy Protocol
+- Industry standard
+
+==Set HSRP Active==
+We want to set Switch1 as the active forwarder (priority of 200, default = 100) for VLAN 10 (10.1.10.254/24) and Switch2
+Switch1#conf t
+Switch1(config)#int vlan 10
+Switch1(config-if)#standby groupNumber (random) ip (ipAddressOfVlan)
+Switch1(config-if)#standby 1 ip 10.1.10.254
+Switch1(config-if)#standby 1 priority 200 
+Switch1(config-if)#standby 1 preempt (makes sure Switch1 is the active forwarder when it is up. If it goes down and back up, it will force itself to be the active forwarder)
+==Confirm this==
+Switch1#show standby
+**Because the router is virtual, it also gets a virtual HSRP MAC Address 0000.0c07.ac(hexadecimalOfGroup#)
+**Virtual routers can use the same MAC address for mutliple VLANs because its Layer 2
+Switch1#show running interface vlan 10
+==Set HSRP Secondary==
+Switch2#conf t
+Switch2(config)#int vlan 10
+Switch2(config-if)#standby groupNumber (random) ip (ipAddressOfVlan)
+Switch2(config-if)#standby 1 ip 10.1.10.254
+*Optional*Switch2(config-if)#standby 1 priority 100
+==Change standby timers for quicker switchover==
+Switch2(config-if)#standby 1 timers 1 3
+
+NTP Network Time Protocol
+- UDP port 123
+- Unicast, multicast, broadcast
+
+==Setting NTP Client time/date [Manual]==
+[Privledge mode] R1#clock set 23:04:00 16 August 2016  
+[GlobalExe mode] R1(config)#clock timezone GMT 0
+[GlobalExe mode] R1(config)#clock summer-time randomName recurring last Sun March 1:00 last Sun 1:00
+==Setting NTP Master time/date [Manual]==
+**Loopback is good for this because Loopback doesn't go down
+R2#conf t
+R2(config)#ntp master 10 
+R2(config)#ntp source loopback 0 (IP 3.3.3.3)
+**# is 1-15. Lower the #, closer to atomic source
+==Confirm this==
+R2#sh ntp associations
+==Setting time/date [Auto with NTP Master]==
+R1#conf t
+R1(config)# ntp server 3.3.3.3
+
+SPAN Switch Port Analyzer
+- Mirror / Monitor a port or VLAN by either sending that port's traffic to another port, or sending VLAN1's traffic to another port - make copies of Ethernet Frames
+
+Remote SPAN 
+- Copy Ethernet Frames from a local switch to a remote switch
+
+==Setup SPAN==
 
 
 
