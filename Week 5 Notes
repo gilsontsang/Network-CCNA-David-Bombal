@@ -291,7 +291,37 @@ SPAN Switch Port Analyzer
 Remote SPAN 
 - Copy Ethernet Frames from a local switch to a remote switch
 
-==Setup SPAN==
+==Setup SPAN (monitor)==
+> Capture data that goes through Switch1 vlan 1, then send it to port f1/0/5
+S1#conf t
+S1(config)#monitor session [randomNumberIsSwitchDependent**]
+S1(config)#monitor session 1 source vlan 1 both [both = sent and receive]
+S1(config)#monitor session 1 destination interface fastEthernet 1/0/5
+> Setup session 2 in a similar way, and change destination to session 2
+S1(config)#monitor session 2 source interface f1/0/3
+S1(config)#no monitor session 1 destination interface fastEthernet 1/0/5
+S1(config)#monitor session 2 destination interface fastEthernet 1/0/5
+**Remember, a SPAN Destination port can only be used on a SINGLE SESSION
+==Confirm==
+S1#do sh run | i monitor
+S1#show monitor
+==Setup SPAN on 2 interfaces==
+> Capture RECEIVE ONLY On both f1/0/3 and f1/0/1 
+S1#conf t
+S1(config)#monitor session 1 source interface fastEthernet 1/0/3, fastEthernet 1/0/1 rx
+==Disable SPAN (monitor)==
+S1(config)#no monitor session 1
+
+==Allow SPAN traffic==
+**By default, SPAN ports' MAC Address is removed, therefore traffic is not accepted
+S1(config)#monitor session 1 destination interface fastEthernet 1/0/5 ingress untagged vlan 1
+
+SPAN overview:
+- 1 SPAN destination port = 1 SPAN session at a time
+- SPAN destination port =/= SPAN source port
+- Multiple SPAN source ports are allowed
+- 1 SPAN session cannot mix both interfaces and VLAN sources
+- SPAN destination port is no longer treated as an ethernet port - MAC Address not learned by switch
 
 
 
