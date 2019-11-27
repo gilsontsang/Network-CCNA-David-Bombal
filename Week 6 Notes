@@ -1,1 +1,62 @@
 
+[Protocols]
+ICMP Internet Control Message Protocol
+SNMP Simple Network Management Protocol
+SNMP Traps
+Syslog
+WMI Windows Management Instrumentation
+MIB Management Information Base
+Object Identifier
+Performance Counter
+
+2 types of Network Management Protocols
+*****USE BOTH*****
+> NMS Network Management System
+1) Query-Based Network Management Protocol
+**NMS sends a query to extract information, then waits for response
+[Advantage] Reliable - query and waits for return message
+[Disadvantage] Slow to react = Could be queried/poll every 5 minutes, therefore it could take 5 minutes for action
+- If NMS queries and does not get a response -> problem
+- a.k.a Polling based Network Management - can be scheduled and frequency
+2) Event-based
+**NMS listens for possible announcements/events
+- Syslog, SNMP trap based
+[Disadvantage] Not reliable - passively waiting, event errors might not arrive
+[Advantage] Acts quickly = Immediate, once event has taken place (SNMP trap)
+*****USE BOTH*****
+
+Network Availability
+- 5 9s -> 99.999% ~ 5 minutes of downtime a year
+- 4 9s -> 99.99% ~ 52 minutes of downtime a year
+
+Collect Data remotely
+- Distributed NMP Network Management Architecture vs Single Centralized NMS
+~ Multiple Data Centres and Multiple Copies of NPM forwards to EOC Enterprise Operation Console
+
+Network Reachability
+- SNMP & ICMP (important to NMP Network Management protocol) may be blocked by Network Engineers - reliability issue 
+> Bypass this by allowing certain subnets through
+> Bypass this by allowing Management VLAN with ACL and Firewall rules disabled
+
+NMP Network Management Protocol
+[SolarWinds]  
+Fault Management -> uses ICMP/ping. If no ping response, then NMS assumes device is down
+[Orion]
+Fault Management -> If no ping response, placed in 'Mode Warning Stage', then Orion will 'fast poll of device' will monitor the device for 120s before Orion notifies you device is down
+
+NMS vs SNMP
+NMS (ICMP/Ping): no ping response, assumes device is down
+SNMP: queries the device, if SNMP says it is down, then NMS can confirm it is down
+
+ICMP/Ping vs SNMP vs WMI Windows Management Instrumentation
+ICMP/ping - availiability calculations, latency response timers
+SNMP - everything else
+WMI - checks for performance counter type values
+
+*When NMS sends Data along with its Ping request because the device's Firewall being pinged might block:
+- 0 size Data field
+- large payload
+- odd in size
+
+SNMP 
+- UDP (port 161)
