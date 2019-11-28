@@ -1,13 +1,14 @@
-
 [Protocols]
 ICMP Internet Control Message Protocol
 SNMP Simple Network Management Protocol
-SNMP Traps
+SNMP Traps - SNMP Traps are alert messages sent from a remote SNMP-enabled device to a central collector, the "SNMP manager"
 Syslog
 WMI Windows Management Instrumentation
 MIB Management Information Base
 Object Identifier
 Performance Counter
+
+NPM Network Performance Management
 
 2 types of Network Management Protocols
 *****USE BOTH*****
@@ -60,3 +61,162 @@ WMI - checks for performance counter type values
 
 SNMP 
 - UDP (port 161)
+
+Network Protocols MIBs vs OIDs
+> MIBs Management Information Bases
+- Larger entity
+- Use for managing entities in a Network (SNMP)
+- Hierarchy database / Tree-structure
+- Each entry in MIB is addressed with an OID
+> OIDs Object Identifiers
+- Included within MIB
+Performance Counters
+**ex. MIBs would be used for polling statistics on a router, whereas OIDs would be polling a specific interface (object identifier) on that route
+**ex. In wireshark, captured SNMP data has 1.3.6.1.2.1.2.2.1.2.2: 46617374457468...
+> MIB: 1.3.6.1.2.1.2.2.1.2.2
+> OID: 46617374457468...
+> These values' meaning can be determined with Solarwinds, with inside NMM
+
+Syslog Protocol
+Numerical         Severity
+             Code
+              0       Emergency: system is unusable (ex. System shutting down)
+              1       Alert: action must be taken immediately (ex. temperature reached)
+              2       Critical: critical conditions (ex. memory allocation error)
+              3       Error: error conditions (ex. Interface up/down messages)
+              4       Warning: warning conditions (ex. Configuration file written by SNMP request)
+              5       Notice: normal but significant condition (ex. Line protocol down)
+              6       Informational: informational messages (ex. Access List violation)
+              7       Debug: debug-level messages
+ex. *Mar 1 00:06:38.895: %SYS-5-CONFIG_I: Configured from console by console
+> 5 is the Syslog Code
+
+==See Logging==
+R1#show logging
+==Change Console/Monitor Logging level==
+> If you change logging level to 5, then only 0-5 is enabled, similar 4, then only 0-4
+> Change console to 5 and monitor to 3 (error)
+R1#conf t
+R1(config)#logging console 5 or notice
+R1(config)#logging monitor error or 3
+==Disable commands being retyped in Console==
+R1(config)#line console 0
+R1(config-line)#no logging synchronous
+==Enable OSPF on Adjacency events==
+R1#debug ip ospf adj
+==Setup passwords/Telnet to 192.168.1.223==
+R2#conf t
+R2(config)#line vty 0 4
+R2(config-line)#login
+R2(config-line)#password cisco
+R2(config-line)#exit
+R2(config)#enable password cisco
+**By default, terminal monitor function is turned on by default on Console. However, for monitor (cmd/VTY - via Telnet), we must use the following command: "R1#terminal monitor"
+==Disable console logging==
+R1#conf t
+R1(config)#no logging console
+==Enable Buffered Logging Level & Size==
+R1#conf t
+R1(config)#logging buffered 7 
+R1(config)#logging buffered 64000 [size]
+==View the buffered log/search==
+> After buffer is turned on (off by default), you can view the log
+R1#show log
+R1#show log | include BDR
+**Notice: logs can become quite extensive, therefore it will be better to have a Syslog server
+==Log content (Must have GNS3 and Kiwilog enabled)==
+> Kiwilog server is 192.168.1.108 and trap debugging (7)
+R1#conf t
+R1(config)#logging 192.168.1.108
+R1(config)#logging trap 7
+==Add Syslog sequence number==
+R1#conf t
+R1(config)#service sequence-numbers
+> Other functions...
+R1(config)#service timestamps log datetime msec (millisecs) year
+R1(config)#service timestamps log uptime
+
+> Cisco Router
+**Currently, Cisco routers copies the entire Cisco IOS into RAM during boot process
+==Information==
+R1#show version
+R1#show flash
+R1#show run
+R1#show start
+R1#erase start
+==Copy running-config to flash==
+R1#sh run | redirect flash:/showruntest.cfg
+> To view this new file
+R1#more flash:/showruntest.cfg
+
+ROM Read-Only Memory
+- ROM stores the routers bootstrap startup program, operating system software, and power-on diagnostic test programs (the POST)
+- 'ROM Monitor' used for password recovery, Router Disaster Recovery, Upload Router OS - think 'Safe Mode'
+
+Flash (Non-Volatile)
+- Flash is erasable and reprogrammable ROM (permanent storage)
+- Flash memory content is retained by the router on power-down or reload
+
+RAM (Volatile)
+- RAM on a Cisco router stores operational information such as routing tables and the running configuration file. 
+- RAM contents are lost when the router is powered down or reloaded
+- RAM holds the running configuration file
+**How much ram in R1#show version ... 239616K/22528K bytes of memory?
+> 239616+22538=262154
+> 262154/1024=256
+> 256Mbs ram
+
+NVRAM (Non-Volatile)
+- If NVRAM is empty, you will be prompted to enter setup mode
+- NVRAM holds the startup configuration file (configuration register)
+
+Configuration Register
+**16 bits
+R1#show version
+> Configuration register is 0x2102 (default)
+> This is in hexadecimal because of '0x'
+> 0010 0001 0000 0010
+> The last digit is how the router boots = 'boot field'
+==Change register to 0x2100==
+R1(config)#config-register 0x2100
+> 0x2100 is ROMMON mode, because last digit of 'boot field' of 0 is ROMMON
+
+boot field (last digit)
+0 = ROMMON
+1 = ROM/Flash
+2 = Cisco IOS
+
+***Memoriable for CCNA
+0x2102 to 0x210F - Normal Mode
+0x2101 - RxBoot Mode (boot using first OS in flash)
+0x2100 - ROMMON Mode
+0x2142 - Bypass Startup Config
+
+**Router bootup process
+1) Perform POST Power-on Self-test 
+2) Loads using bootstrap code (only for loading)
+3) Finds Cisco IOS software - if not available, boots into ROMMON
+4) OS loaded into RAM, router finds startup configuration in NVRAM
+5) This startup configuration then loads into NVRAM and becomes current running configuration
+6) Runs configured IOS software
+
+**How Cisco routers locate boot configuration
+1) Checks for boot field
+2) If not boot field, boots in Flash and boots in 1st IOS image
+3) If no file in flash, boots from TFTP server (using 'slop')
+4) If none is available, then loads ROMMON
+
+Cisco IOS IFS Integrated File System
+==Create directory (flash) similar to Windows explorer/folders==
+R1#mkdir flash:/test (make directory)
+==Redirect running-config to that flash file above==
+R1#show running-config | redirect flash:/test/shrun.cfg
+==Read that file in that directory==
+R1#more flash:/test/shrun.cfg
+
+
+
+
+
+
+
