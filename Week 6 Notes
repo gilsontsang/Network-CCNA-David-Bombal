@@ -214,9 +214,158 @@ R1#show running-config | redirect flash:/test/shrun.cfg
 ==Read that file in that directory==
 R1#more flash:/test/shrun.cfg
 
+Cisco IOS systems
+R1#show file systems
+*'opaque' is for internal functions/commands
+*'network' is external file system of different servers
+*'disk' is used for flash
+*'nvram' is used for start-up config
+==Copy nvram file to flash==
+R1#copy nvram:startup-config flash:/copystart.cfg
+==Backup IOS to TFTP Server==
+R1#copy flash:insertFileNameHere tftp:insertIPAddyHere
+**Note. TFTP has not security mechanism. SecureCopy has security.
+==Upgrade IOS image from TFTP server==
+> Make sure flash has enough space
+R1#show flash
+> Copy image from TFTP to flash
+R1#copy tftp: flash:
+> Once done, reboot
+R1# boot system flash: fileNameHere
+
+Cisco IOS naming conventions
+ex. c2900-universalkh-mz.SPA-152.4.M1.bin
+c2900 = Platform 2900 Cisco Router
+universal k9 = Universal feature set
+mz = File format- m(runs in RAM), z(compressed)
+SPA = Special Image, Production (approved production image), A (key version A,B,C)
+152-4.M1 = Software verison number
+
+==Password Recovery==
+**Step (1-4) can be achieved by sending a 'break' in PuTTy to break out of the boot cycle and immediately enter ROMMON mode
+1) Switch off router
+2) Remove compact flash
+3) Switch on router
+4) In ROMMON mode, reinsert flash
+rommon>confreg 0x2142
+rommon>reset
+5) Enter 'no' to setup questions
+Router>enable
+Router#copy startup-config running-config
+6) Setup new Password (old password is unknown)
+Router#conf t
+Router(config)#enable secret cisco
+Router(config)#config-register 0x2102
+Router(config)#end
+Router#copy running-config startup-config
+**config-register saves automatically to startup-config!!!
+
+Cisco IOS Passwords
+==Setup enable password==
+> Configure UNENCRYPTED enable password of cisco
+R1>en
+R1#conf t
+R1(config)#enable password 'cisco'
+> To enable encryption (only useful for someone standing behind you. It can be decrypted with a tool)
+R1(config)#service password-encryption
+> Configure ENCRYPTED enable password properly of 'cisco'
+**MD5 hashing encryption 128bit
+R1(config)#enable secret 'cisco'
 
 
+==View services/ports running==
+R1#show control-plane host open-ports
+==Disable services==
+> Disable dns server 
+R1#config t
+R1(config)#no ip dns server
+> Disable DHCP pool test
+R1(config)#no ip dhcp pool test
+> Disable Telnet (should use SSH)
+R1(config)#no telnet
+> Disable CDP Cisco Discovery Protocol
+**Dangerous because R1#sh cdp neighbors
+R1(config)#int f0/1
+R1(config-if)#no cdp enable
 
+==Setup UserMode / Console password==
+> Console password ONLY
+Switch#conf t
+Switch(config)#line 0
+Switch(config-line)#password cisco
+Switch(config-line)#login
+> Console user & password
+Switch#conf t
+Switch(config)#username david password cisco
+Switch(config)#line 0
+Switch(config-line)#login local
+> Console user with immediate privledge mode access
+Switch#conf t
+Switch(config)#username david privledge 15
+> Set inactivity timer
+Switch#conf t
+Switch(config)#line console 0
+Switch(config-line)#exec-timeout 5 0
 
+==Setup VTY (Telnet) lines==
+Switch1#conf t
+Switch1(config)#line vty 0 4 (5 sessions, 0 1 2 3 4)
+Switch1(config)#password cisco
+Switch1(config)#login
+==Show VTY (Telnet) lines==
+Switch1#show users
+==Disconnect a user from VTY line==
+> TTY line 98
+Switch1#clear line 98
+> VTY line 0
+Switch1#clear vty line 0
+
+==Connect to VTY lines== 
+> Connect to 4 sessions
+R1#telnet 10.1.1.2
+R1#telnet 10.1.1.2
+R1#telnet 10.1.1.2
+R1#telnet 10.1.1.2
+==Select a session==
+> Show session
+R1#show session
+> Resume sesison 2
+R1#2
+==Disconnect session==
+> Disconnect 3
+R1#disconnect 3
+
+==Enable SSH Secure Shell==
+> Specific hostname and domain name
+R1#conf t
+R1(config)#hostname R1
+R1(config)#ip domain-name cisco.com
+R1(config)#username david secret cisco
+R1(config)#crypto key generate rsa modulus 1024 (larger of this key, the more secure)
+> Show current SSH connections
+R1#show ssh
+==Disable Telnet, enable only SSH==
+R1(config)#line vty 0 4
+R1(config-line)#transport input ssh 
+// Or vice versa
+R1(config-line)#transport input telnet
+// Or BOTH
+R1(config-line)#transport input ssh telnet
+==Connect to SSH==
+> Connect to 10.1.1.2 with the userName David
+R2#ssh -l david 10.1.1.2
+
+==Setup BOTD Banner of The Day==
+> Login banner (displays before login)
+R1#conf t
+R1(config)#banner login #thisIsLoginBanner#
+> Executive banner (displays after login)
+R1(config)#banner exec #thisIsExecBanner#
+> MOTD
+R1(config)#banner #thisIsMessageOfTheDay#
+                                
+==View license==
+R1#show license udi
+*License UDI Universal Device Identifier = PID Product Identifier + SN Serial Number
 
 
