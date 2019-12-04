@@ -368,4 +368,203 @@ R1(config)#banner #thisIsMessageOfTheDay#
 R1#show license udi
 *License UDI Universal Device Identifier = PID Product Identifier + SN Serial Number
 
+**IOS before and current
+[Before - ISR G1 Integrated Services Routers] 
+- Default, universal license is loaded with basic features
+- Extended features are loaded with a purchase of new IOS
+[Current - ISR G2]
+- Default, universal IOS is loaded with all features, but features are unlocked through the use of licenses
 
+ISR G1
+5 Basic IOS Images
+1) IP Base
+- Entry level Cisco IOS Image
+2) IP Voice
+- VoIP, VoFR, IP Telephony
+3) Advanced Security
+- IOS Firewall, IPSec, 3DES, VPN, IPS, SSH
+4) SP Service Provider Services 
+5) Enterprise Base
+- IPX, Apple Talk, IPv4
+
+ISR G1
+3 Combination IOS Images
+6) Advanced IP Services (3+4)
+- IPv6
+7) Enterprise Services (4+5)
+- Full IBM Support
+8) Advanced Enterprise Services
+- Full Cisco IOS Feature Set
+
+Problem with ISR G1
+- If you only want selected features from selected IOS, then you have to purchase the Advanced Enterprise Services
+
+**ISR G2 - CCNA needs to know this
+1) IP Base (ipbaseK9)
+- Basic set of IOS features
+2) Data (dataK9)
+- Supports MPLS, ATM, multiprotocols
+3) Unified Communications (ucK9)
+- Support VOIP and Telephony
+4) Security (securityK9)
+- Cisco Firewall, IPS, IPsec, 3DES, VPN
+
+License Types
+1) Permanent
+2) Temporary - 60 days (continue to operate normally until reload - reload will revert to default)
+3) Feature - features are checked for their licenses before enabling themselves
+
+==Load temporary license==
+2921-B#conf t
+2921-B(config)#license boot module c2900 technology-package uck9
+2921-B(config)#end
+2921-B#write
+==Install license==
+> Once gathered from Cisco (XML License)
+2921-B#license install flash:/all_licenses.lic
+==Remove license==
+2921-B(config)#license boot module c2900 technology-package uck9 disable
+2921-B(config)#end
+2921-B#write
+> Once reloaded
+2921-B#license clear uck9
+2921-B#conf t
+2921-B(config)#no license boot module c2900 technology-package uck9 disable
+==Save current license==
+2921-B#license save flash:all_licenses.lic
+
+~Cisco PAK Product Authentiation Key - license key (receipt)
+
+DHCP Snooping
+**Layer 2 security feature in an ethernet switch environment
+'bootp'
+- Sets Trusted/Untrusted ports
+- Prevent Rogue DHCP servers, man-in-the-middle attacks
+- All ports are untrusted by default, you have to explicit a specific port as trusted for that port for DHCP Snooping to allow the DHCP server on that port. If it is untrusted, the untrusted port will not be able to receive DHCP messages
+**Switch will build a DHCP Snooping Binding Database (MAC Address, IP Address, VLAN of host), this Database can be leverage by other security features
+
+Dynamic ARP inspection
+- Leverage DHCP Snooping database to protect against ARP poisoning
+- Intercepts all untrusted ports' ARP requests and replies and match those in DHCP Snooping database
+
+==Show DHCP leases==
+R1#show ip dhcp binding
+==Enable DNS on router==
+R1#conf t
+R1(config)#ip dns server
+R1(config)#ip domain-lookup
+
+Man-in-the-middle
+> Setup rogue DHCP server and provide the IP to the user
+> User -> Rogue DHCP server -> Real Gateway
+1) ip route 0.0.0.0 0.0.0.0 10.1.1.254 (rogue DHCP server)
+2) enable NAT (ex. if user wants to to get their router name MyRouter, then we can set 2a)
+2a) rougeRouter(config)#ip host MyRouter 10.1.2.254 (MyRouter's own gateway - translating the name to an IP address)
+
+==Enable DHCP Snooping on switch==
+Switch1#conf t
+Swtich1(config)#ip dhcp snooping lan 1 [enabled on VLAN1]
+Swtich1(config)#ip dhcp snooping [enabled globally]
+==Enable trusted ports (because default, all untrusted)==
+> Assume g0/0 on switch is DHCP server
+Router1#conf t
+Router1(config)#interface g0/0
+Router1(config-if)#ip dhcp snopping trust
+
+Port Security
+- Restrict a port to a single MAC Address or limit the # of MAC Addresses (1 for ex., now Hubs/APs cannot use it) that can be learned
+- Violation: port shutdown or frames being dropped
+*"Sticky Learning" - automatically add a learnt MAC Address to running config (you can then save the running-config to startup-config)
+
+Port Security Violations
+1) Protect - Drop packets from unknown source MAC Address
+2) Restricted - Protect + generation of log message + security violation counters will increment
+3) Shutdown - Puts into Error disabled mode
+
+
+==Setup port security==
+> Show port security
+S1#show port-security
+S1#show port-security address
+==Enable port security automatically==
+>Enable port security on G0/0 automatically
+**First... setup port as access port and trunk port
+S1#conf t
+S1(config)#int g0/0
+S1(config-if)#switchport mode access [makes the port as Access port]
+S1(config-if)#switchport port-security [enable port-security]
+==Enable port security manually==
+> Enable port security on G0/1 with MAC address 0023.3300.0003
+S1(config-if)#switchport mode access 
+S1(config-if)#switchport port-security mac-address 0023.3300.0003
+S1(config-if)#switchport port-security
+> Set violation
+S1(config-if)#switchport port-security violation shutdown 
+==Enable port security manually - sticky==
+S1(config-if)#switchport port-security mac-address sticky
+==Set violation type==
+> Also set timer to 30secs
+S1#conf t
+S1(config)#errdisable recovery cause psecure-violation
+S1(config)#errdisable recovery interval 30
+
+3 A's
+1) Authentication
+- Authentication of Username and Password
+2) Authorization
+- What you are allowed to do after authentication
+3) Accounting
+- Log of what happened on a network
+
+IEEE 802.1X Identity Based Authentication/Networks
+- Implement identity based networking, user must present username/password before they can gain access to network
+**Radius/Tacacs is used between the authenticator (switch) and the authentication server
+
+Radius
+- Combines Authentication and Authorization
+- UDP
+- Port 1645, 1812
+- Password encryption on single packets
+
+Tacacs+
+- Cisco priorietary - setup which users can do what
+- Authentication, then Authorization and Accounting is separate
+- TCP
+- Port 49
+- Password encryption on entire packets
+
+TACAS Server (Before)
+==Enable AAA authentication==
+R1#conf t
+R1(config)#line console 0
+R1(config)#aaa new-model [Disables OLD access control commands - login / login local no longer works]
+==Setup local/backup username==
+R1(config)#username david password cisco
+==Direct authentication to ACS Access Control Server and setup TACACS+ key==
+> ACS located 10.1.1.1
+R1(config)#tacacs-server host 10.1.1.1
+> Set key-encryption password, this is used to communicate with ACS
+R1(config)#tacacs-server key cisco
+==Setup Authentication==
+> Here, you can setup when ppl go to enable mode,botd for which user, list of logins...
+> default = will apply to all lines on router - console, aux, vty, tty
+> local = if tacacs server is unavailable, then local usernames/passwords will be used
+R1(config)#aaa authentication login default group tacacs+ local 
+
+****TACAS Server Groups (Modern) - CCNA exam
+==Configue TACAS server groups==
+> Server IP 10.1.1.1
+R1#conf t
+R1(config)#aaa new-model
+R1(config)#username david password cisco [local backup]
+> Point to ip address of the TACACS server named 'acs'
+R1(config)#tacacs server acs
+R1(config-server-tacacs)#address ipv4 10.1.1.1
+R1(config-server-tacacs)#key cisco
+R1(config-server-tacacs)#exit
+> Setup our AAA group using TACACS server called 'acs' -> name this group 'acsgroup'
+R1(config)#aaa group server tacas+ acsgroup [nameOfGroup]
+R1(config-sg-tacas)#server name acs
+R1(config-sg-tacas)#exit
+> Setup all lines such that 'acsgroup' will be used for AAA. If unavailable, local is useds
+R1(config)#aaa authentication login default group acsgroup local [local is used as backup]
