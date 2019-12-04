@@ -1,0 +1,67 @@
+Switch Stacking
+- TLDR: "LOGICAL - SINGLE VIRTUAL SWITCH" 
+***TLDR2: Stacking techologies and Chassis Aggregation Technologies... Simplifies management, configuration and forwarding of traffic
+- Multiple switches linked together to act as a single switch through 'stacking ports'
+- Connected in a series (ring) - 1st switch attaches to last switch
+- Full duplex
+- Single "STACK MASTER" that controls the stack
+- Runs the same protocols, share the same MAC Address table, single management IP Address, one configuration file, (STP, CDP, VTP) running on one switch ONLY
+BENEFITS:
+1) Etherchannels/Link Aggregation is created - easier/better than STP, STP has to block one port and allow another port
+2) Simplified configuration and management of network
+
+Switch Stacking (Access Layer vs Chassis Aggregation)
+1) Access Layer
+- stack of switches joined together via special cables - up to 8 switches
+2) Chassis Aggregation
+- Distribution and core layers 
+- Does not require special cables, instead uses ethernet interface switches - usually 2 switches
+- HA High Availability / Redundancy / Scalability (HSRP Hot Standby Router Protocol, Spanning Tree)
+- Cisco VSS Virtual Switch System 
+BENEFIT: HA, Redundancy, Scalability
+DOWNSIDE: Harder to implement, cost 
+
+Chassis Based Switch (Using Link Aggregation)
+- 2 or more switches are independent of each other, but joined together
+- Multiple line cards, supervisor modules and power supplies
+*Supervisor Module: If one of the modules go down, the supervisor module can take over the management of the switch
+
+Aggregated Chassis Environment
+- Similar to Chassis Based Switch, but the multiple switches becomes one switch
+BENEFITS: STP not required because if switches are setup R1(2 switches in 1) + R2(4 switches in 1) but R1 and R2 are single switches, then there is only 1 link between R1 and R2
+
+TCP Port numbers:
+20/21 FTP
+22 SSH
+23 Telnet
+25 SMTP
+80 HTTP
+110 POP3
+443 SSL
+
+UDP Port numbers:
+67,68 DHCP
+69 TFTP
+161 SNTP
+
+Both Port numbers:
+53 DNS
+
+ACL Access Control List
+- Used to permit/deny packets moving through a router
+- If packet match ACL, then permit or if deny packet, then deny. Otherwise if no match, it will be denied
+
+Standard ACL
+- Permits or Denies based on source IP Address
+
+Extemded ACL
+- Permits or Denies based on source IP Address, destination IP Address, protocols, applications, ports, etc...
+
+Inbound ACL:
+- ACL determines whether to allow/deny traffic before it hits router
+1) ACL -> 2) Router
+Outbound ACL:
+1) Router -> 2) ACL
+**It is more efficient to bind an ACL for inbound traffic
+
+
