@@ -37,7 +37,7 @@ TCP Port numbers:
 25 SMTP
 80 HTTP
 110 POP3
-443 SSL
+443 HTTPS SSL
 
 UDP Port numbers:
 67,68 DHCP
@@ -49,13 +49,14 @@ Both Port numbers:
 
 ACL Access Control List
 - Used to permit/deny packets moving through a router
-- If packet match ACL, then permit or if deny packet, then deny. Otherwise if no match, it will be denied
 
-Standard ACL
-- Permits or Denies based on source IP Address
-
-Extemded ACL
-- Permits or Denies based on source IP Address, destination IP Address, protocols, applications, ports, etc...
+ACL Process
+**ACL goes through a sequential list (permit, deny)
+**Must have at least one permit statement, otherwise might as well unplug the cable
+1) No ACL permit match? Goes to next line in the sequential list
+- If next line, ACL permits? Permit, process stops
+- If next line, ACL does not permit? Deny, process stops
+2) If no ACL permit match by the end of the sequential list? Implicit deny, process stops
 
 Inbound ACL:
 - ACL determines whether to allow/deny traffic before it hits router
@@ -63,5 +64,272 @@ Inbound ACL:
 Outbound ACL:
 1) Router -> 2) ACL
 **It is more efficient to bind an ACL for inbound traffic
+
+ACL uses:
+1) IPSec tunneling - ACL determines which routes need to be encrypted
+2) Redistribute routing protocols - ACL determines which routing protocols such as EIGRP needs to be redistributed to EIGRP. Not all EIGRP needs to be redistributed, therefore ACL can control which ones need to be redistributed
+3) NAT - ACL controls which set of routes need to be translated
+
+Standard ACL
+- Checks source IP Address ONLY
+- Permits or denies entire protocol suite
+- Numbered 1-99, 1300-1999
+- Names (you specify)
+*Remark = ACL description in IOS
+
+Extended ACL
+- Checks source IP Address and Destination IP Address
+- Permits or denies individual protocols, applications, ports, etc...
+- Numbered 100-199, 2000-2699
+- Names (you specify)
+
+Wildcard masks - Standard/Extended ACL
+- ACL use inverse mask (opposite of Network Mask)
+Binary:
+0 = match
+1 = ignore
+ex. Match a specific address "access-list 1 permit 10.1.1.1 0.0.0.0" or "access-list 1 permit host 10.1.1.1"
+Address|Mask
+10|0 (match)
+1|0 (match)
+1|0 (match)
+1|0 (match)
+ex. Match anything "access-list 1 permit 0.0.0.0 255.255.255.255" or "access-list 1 permit any"
+ex. Match subnet 0.0.0.Anything "access-list 1 permit 10.1.1.0 0.0.0.255"
+10|0 (match)
+1|0 (match)
+1|0 (match)
+0|255 (anything)
+ex. Ignore last 4 bits of last octet "access-list 1 permit 10.1.1.0 0.0.0.15"
+10|0 (match)
+1|0 (match)
+1|0 (match)
+0|15 0000 1111 (8 4 2 1 = 15), the last 4 binary bits can be set to anything
+Therefore, 10.1.1.1 will match 0.0.0.15 because 0000 0001 permitted by 0000 1111
+But... 10.1.1.129 will not match 0.0.0.15 because 1000 0001, the issue is 1000 does not match 0000
+
+**Remember, an access list has to bind in order for it to be active. You can create all the access list you want, but if you don't activate it, then you might as well delete it
+**Also, non-existent access list can be bind to interfaces - bad practice, do not to have access list bind if the access list does not exist 
+**Order of processing is important. ACL is top-down process
+ex. (b) would not be evaluated 
+a) access-list 1 permit all
+b) access-list 1 deny host 10.1.1.1
+**Standard ACL: Placement of ACLs closest to destination - prevent any unwanted deny because it only accounts for source IP 
+**Extended ACL: Placement of ACLs closest to source - does not matter because it accounts for both source and destination IP along with its with protocols
+
+==Permit 10.1.1.1 in ACL==
+R1#conf t
+R1(config)#access-list 1 permit 10.1.1.1 0.0.0.0
+==Show IP access list==
+R1#show ip access-lists
+==Permit 10.1.2.3 in ACL, deny everyone else on int f0/0==
+R1(config)#access-list 2 permit 10.1.2.3 0.0.0.0 or permit host 10.1.2.3
+R1(config)#int f0/0
+> Set inbound ACL to be ACL list 1, and ACL list 3 to permit all traffic
+R1(config-if)#ip access-group 1 in
+R1(config-if)#end
+R1(config)#access-list 3 permit any
+R1(config)#int f0/0
+R1(config-if)#ip access-group 3 out
+> Confirm this
+R1#show ip int f0/0
+==Add remark==
+R1(config)#access list 5 remark (Add In Your Comment Here)
+> See remark (show ip access-lists does not work)
+R1#show run | i access-list
+
+==Standard ACL==========================================
+10.1.1.1 + 10.1.1.2 <-> f0/0 R1 f0/1 <-> 10.1.2.1 server
+
+Permit host 10.1.1.1 to server 10.1.2.1
+Deny everyone else to server 10.1.2.1
+Allow traffic to other server
+
+R1#conf t
+R1(config)#access-list 4 permit 10.1.1.1 0.0.0.0
+R1(config)#int f0/1
+R1(config-if)#ip access-group 4 out
+
+==Standard ACL==========================================
+10.1.1.1 <-> f0/0 R1 f0/1 <-> 10.1.2.1 server
+
+Permit subnet 10.1.1.0/24
+Deny everyone else
+
+R1#conf t
+R1(config)#access-list 5 10.1.1.0 0.0.0.255
+R1(config)#int f0/0
+R1(config-if)#ip access-group 5 in
+
+==Standard ACL==========================================
+10.1.1.1 <-> f0/0 R1 f0/1 <-> 10.1.2.1 server
+
+Permit 10.1.1.1 to telnet to router
+Deny everyone else telnet to router
+Allow traffic anywhere else
+**Standard control list has no access to permit/deny protocols, since this is telnet, we have to permit is inside vty line
+
+R1#conf t
+R1(config)#access-list 6 permit 10.1.1.1
+R1(config)#line vty 0 4
+R1(config-line)#access-class 6 in
+
+==Extended ACL==========================================
+10.1.1.1 <-> f0/0 R1 s0/0 <-> s0/0 R2 f0/0 <-> 10.1.2.1 server
+
+Permit http traffic from 10.1.1.1 to 10.1.2.1
+Deny all other traffic from subnet 10.1.1.0/24 to server 10.1.2.1
+Permit all other traffic from subnet anywhere else
+*Recall 100-199 = extended ACL
+
+R1#conf t
+R1(config)#access-list 100 permit tcp 10.1.1.1 0.0.0.0 host 10.1.2.1 eq 80 (or www)
+R1(config)#access-list 100 deny ip 10.1.1.0 0.0.0.255 host 10.1.2.1
+R1(config)#access-list 100 permit ip 10.1.1.0 0.0.0.255 any
+R1(config)#int f0/0
+R1(config-if)#ip access-group 100 in
+
+==Extended ACL==========================================
+10.1.1.1 <-> f0/0 R1 s0/0 <-> s0/0 R2 f0/0 <-> 10.1.2.1 server
+
+Permit http and tftp traffic from subnet 10.1.1.0/24 to server 10.1.2.1
+Deny all other traffic from subnet 10.1.1.0/24 to server 10.1.2.1
+Permit all other traffic from subnet anywhere else
+
+R1#conf t
+R1(config)#access-list 101 permit tcp 10.1.1.0 0.0.0.255 host 10.1.2.1 eq 80
+R1(config)#access-list 101 permit udp 10.1.1.0 0.0.0.255 host 10.1.2.1 eq 69
+OR
+R1(config)#access-list 101 permit udp 10.1.1.0 0.0.0.255 10.1.2.1 0.0.0.0 eq 69
+R1(config)#access-list 101 deny ip 10.1.1.0 0.0.0.255 host 10.1.2.1
+OR
+R1(config)#access-list 101 deny ip 10.1.1.0 0.0.0.255 10.1.2.1 0.0.0.0
+R1(config)#access-list 101 permit ip 10.1.1.0 0.0.0.255 any
+R1(config)#int f0/0
+R1(config-if)#ip access-group 101 in
+
+==Extended ACL==========================================
+10.1.1.1 <-> f0/0 R1 s0/0 <-> s0/0 R2 f0/0 <-> 10.1.2.1 server
+
+Permit http and tftp traffic from anywhere to server 10.1.2.1
+Deny all other traffic to server 10.1.2.1
+
+R2#conf t
+R2(config)#access-list 102 permit tcp any (0.0.0.0 255.255.255.255) 10.1.2.1 0.0.0.0 eq 80
+R2(config)#access-list 102 permit udp any 10.1.2.1 0.0.0.0 eq 69
+R2(config)#access-list 102 deny ip any 10.1.2.1 0.0.0.0
+R2(config)#int f0/0
+R2(config)#ip access-group 102 out
+
+==Edit individual line numbers on ACL==
+> View ACL 102
+R1#show access-list 102
+10 permit...
+20 permit...
+30 deny...
+> Remove 30
+R1#conf t
+R1(config)#ip access-list extended 102
+R1(config)#no 30
+
+===================================================
+
+Private address space (IANA Internet Assigned Numbers Authority)
+/8 10.0.0.0 - 10.255.255.255
+/12 172.16.0.0 - 172.31.255.255
+/16 192.168.0.0 - 192.168.255.255
+- Non routable
+- ISP blocked and dropped
+
+NAT Network Address Translation
+- IPv4 exhausted RFC1918
+- Private address translated to Public address to be used on the internet
+
+PAT Port Address Translation
+- 1 public IP address used by 500 internal devices (Overloading the address)
+
+***3 types of NAT - Overloading:
+1) Static NAT
+- Permanent
+- 1-1 mapping: private IP to public IP
+2) Dynamic NAT
+- Not Permanent 
+- NAT translations are automatically created and torned down when not needed (mapping will be removed once communication ends) - times out by itself
+- A pool of Public IP addresses is available for use internally by Private IP addresses. Router dynamically allocates public IP addresses (on as needed basis)
+3) PAT
+- maps multiple private IP addresses to a single public IPv4 address
+- uses Port Numbers to differentiate between different translations
+- a.k.a NAT Overloaading (single IP address with multiple IP addresses)
+- it is a type of Dynamic NAT
+
+Inside Local - Our private IP address
+Inside Global - Our public IP address
+Outside Local - Destination private IP address
+Outside Global - Destination public IP address
+
+==Static NAT Setup==
+R1 10.1.1.1 /24 <-> f0/0 10.1.1.2 /24 R2 f0/1 8.1.1.1 /24<-> 8.1.1.2 /24 R3
+> Setup outside NAT
+R2#conf t
+R2(config)#int f0/1
+R2(config-if)#ip nat outside
+> Setup inside NAT
+R2(config)#int f0/0
+R2(config-if)#ip nat inside
+R2(config-if)#end
+> Setup random address for this ex.
+R2(config)#ip nat inside source static 10.1.1.1 8.1.1.5 (Inside Global, Inside Local)
+==Show NAT==
+R2#show ip nat translations
+==Watch NAT in action==
+R3#ping 8.1.1.5 (5/5 successful pings!)
+**Reason this works is because R3 thinks 8.1.1.5 is real, but actually 8.1.1.5 is the inside translation for 10.1.1.1)
+Similarly...
+R3#telnet 8.1.1.5 (This Telnets to 10.1.1.1 and can be confirmed below.
+R1#conf t
+R1(config)#line vty 0 5
+R1(config-line)#login
+R1(config-line)#password cisco
+R1(config-line)#end
+R1(config)#enable password cisco
+
+==Dynamic NAT Setup==
+R1 10.1.1.1 /24 <-> f0/0 10.1.1.2 /24 R2 f0/1 8.1.1.1 /24<-> 8.1.1.2 /24 R3
+> Setup outside NAT
+R2#conf t
+R2(config)#int f0/1
+R2(config-if)#ip nat outside
+> Setup inside NAT
+R2(config-if)#int f0/0
+R2(config-if)#ip nat inside
+R2(config-if)#end
+> Setup ACL and NAT-POOL
+R2(config)#access-list 1 permit 10.1.1.0 0.0.0.255
+R2(config)#ip nat pool NAT-POOL (nameHere) 8.1.1.5 8.1.1.10 (range) netmask 255.255.255.0
+R2(config)#ip nat inside source list 1 pool NAT-POOL
+
+==Clear NAT translations==
+R2#clear ip nat translations
+
+==PAT Setup (NAT Overloading)==
+> Setup outside NAT
+R2#conf t
+R2(config)#int f0/1
+R2(config-if)#ip nat outside
+> Setup inside NAT
+R2(config-if)#int f0/0
+R2(config-if)#ip nat inside
+R2(config-if)#end
+> Setup PAT / NAT Overloading
+R2(config)#access-list 1 permit 10.1.1.0 0.0.0.255
+R2(config)#ip nat inside source list 1 interface fastEthernet 0/1 overload
+
+**Static and Dynamic NAT is not good for when your network has 100 devices. This is when NAT Overloading is beneficial
+**PAT Port Address Translation is able to differentiate the sessions based on Port Number, hence the term Port Address Translation
+**In previous examples, we NAT to the Router's IP address, we will now NAT to a Public IP address
+**TDLR: Static NAT, Dynamic NAT = everytime a device wants to send data out, it will need a public IP address
+**TDLR: Therefore, PAT is more useful because it is NAT overloading and uses 1 public IP address with different ports (hence, 'Port Address' translation) for each private IP device
+
+
 
 
