@@ -304,9 +304,9 @@ R2(config-if)#int f0/0
 R2(config-if)#ip nat inside
 R2(config-if)#end
 > Setup ACL and NAT-POOL
-R2(config)#access-list 1 permit 10.1.1.0 0.0.0.255
 R2(config)#ip nat pool NAT-POOL (nameHere) 8.1.1.5 8.1.1.10 (range) netmask 255.255.255.0
 R2(config)#ip nat inside source list 1 pool NAT-POOL
+R2(config)#access-list 1 permit 10.1.1.0 0.0.0.255
 
 ==Clear NAT translations==
 R2#clear ip nat translations
@@ -330,6 +330,226 @@ R2(config)#ip nat inside source list 1 interface fastEthernet 0/1 overload
 **TDLR: Static NAT, Dynamic NAT = everytime a device wants to send data out, it will need a public IP address
 **TDLR: Therefore, PAT is more useful because it is NAT overloading and uses 1 public IP address with different ports (hence, 'Port Address' translation) for each private IP device
 
+__________________________________________________________
+
+===NAT Simulations - Section447===
+Server 10.1.1.1 <-> f0/0 Router1 s0/0 <-> Internet
+Enable Static NAT so users on the Internet can access the Web server 10.1.1.1 as follows:
+
+Create a NAT translation on the router for the server
+The inside global address is 192.168.1.2 (assume that this is a valid address)
+Configure the Serial interface as the outside interface
+Configure the FastEthernet interface as the inside interface
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# ip nat inside source static 10.1.1.1 192.168.1.2
+Router1(config)# int s0/0
+Router1(config-if)# ip nat outside
+Router1(config-if)# int f0/0
+Router1(config-if)# ip nat inside
+
+
+===NAT Simulations - Section448===
+Server 10.1.1.1 <-> f0/0 Router1 s0/0 <-> Internet
+Enable Static NAT so users on the Internet can access the Web Server 10.1.1.1 as follows:
+
+Create NAT translation on the router for the server. The inside global address is 1.2.3.4
+Configure the Serial interface as the outside interface
+Configure the Fast Ethernet interface as the inside interface
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# ip nat inside source static 10.1.1.1 1.2.3.4
+Router1(config)# int s0/0
+Router1(config-if)# ip nat outside
+Router1(config-if)# int f0/0
+Router1(config-if)# ip nat inside
+
+
+===NAT Simulations - Section449===
+Server 10.1.1.0/24 <-> f0/0 Router1 s0/0 <-> Internet
+Configure Dynamic NAT using a pool on the Router as followings:
+
+Step 1: Create a nat pool with the name "natpool" with address range: 192.168.1.1 to 192.168.1.10 and netmask 255.255.255.240
+Step 2: Bind access list 1 to the nat pool
+Step3: Create access list 1 and permit network 10.1.1.0/24
+Step 4: Configure interface Serial 0/0 as the outside interface
+Step 5: Configure interface FastEthernet 0/0 as the inside interface
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# ip nat pool natpool 192.168.1.1 192.168.1.10 netmask 255.255.255.240
+Router1(config)# ip nat inside source list 1 pool natpool
+Router1(config)# access-list 1 permit 10.1.1.0 0.0.0.255
+Router1(config)# int s0/0
+Router1(config-if)# ip nat outside
+Router1(config-if)# int f0/0
+Router1(config-if)# ip nat inside
+
+
+===NAT Simulations - Section450===
+Server 10.1.1.0/24 <-> f0/0 Router1 s0/0 <-> Interne
+Configure the router with PAT so that hosts in the 10.1.1.0/24 subnet can access the access the Internet:
+
+Step 1: Create the PAT translation using the Serial 0/0
+Step 2: Configure access list 1 to permit network 10.1.1.0/24
+Step 3: Configure Serial 0/0 as the outside interface
+Step 4: Configure FastEthernet 0/0 as the inside interface
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# ip nat inside source list 1 interface serial 0/0 overload
+Router1(config)# access-list 1 permit 10.1.1.0 0.0.0.255
+Router1(config)# int s0/0
+Router1(config-if)# ip nat outside
+Router1(config-if)# int f0/0
+Router1(config-if)# ip nat inside
+__________________________________________________________
+
+QOS Quality of Service
+
+Converged Networks
+- Single Network for Voice, Data and Video (before it was all on different networks)
+
+Quality issues in Converged Network
+1) Lack of bandwidth
+- Maximum bandwidth = the lowest link in the network
+- Forward the most important packets first (voice over ftp)
+2) End-to-end delay
+- A-to-B delay
+- Propagation delay - time it takes to transit a packet
+- Processing delay - time it takes to process a packet from its input, decision, then onto its output
+- Queuing delay (can be prioritized) - when a packet waits in the output queue of a router
+- Serialization delay - times it takes to physically transfer bits on the wire
+3) Variation of delay (jitter)
+ex. Traffic (A)(B)(C) is a lot smoother than (A)(B)---(C), the latter is jitter. Cisco has dejitter functions to resolve this. Similar to how videos are prebuffered
+4) Packet loss
+- Tail drops: packets may be lost when output queue is full
+- WRED Weighted Random Early Detection: X [MAX] Y [MIN] Z, if it gets to X amount of traffic, low priority traffic are randomly dropped
+
+Ways to reduce delay:
+- Upgrade links
+- Forward important packets first
+- Compress payload / IP packet headers
+- Guarantee enough bandwidth to sensitive traffic
+
+QOS requirements
+Voice/Video latency <= 150ms
+Jitter <= 30ms
+Loss <= 1%
+Video bandwidth +20% (ex. 384kbps + 20% requires 460kbps)
+
+QOS requirements classes/priority
+Mission-critical apps > Transactional (chats, client-to-server transactions) > Best-Effort (internet, e-mail) > Less-than-best-effort (scavenger - facebook, youtube, bit torrent)
+
+Implement QOS
+1) CLI - no templates
+2) Modular QoS CLI (MQC) - can create templates
+3) AutoQoS - can create templates 
+3a) AutoQoS VoIP (voice ONLY) 
+- DOES NOT looks at traffic
+- Router & Switches
+3b) AutoQoS Enterprise (voice, video and data) 
+- looks at traffic and also offer suggestions
+- Routers ONLY
+4) QoS Policy Manager (QPM)
+- Centralized QoS Management platform, enables network wide QoS
+
+3 models of QoS
+1) Best effort 
+- no QoS is applied to packets
+- does scale, no gurantee delivery
+2) IntServ 
+- applications signal to network that they require special QoS
+- does not scale, gurantee delivery (ex. "you bought First Class ticket, you will be guranteed a seat in First Class")
+3) DiffServ 
+- disregard application, network recognize classes that require special QoS
+- does scale, no gurantee delivery (ex. "just because you want to be treated like First Class, does not gurantee you will be treated like First Class")
+**Real world, IntServ (mission-control) and DiffServ (QoS) work together
+**Real world, Best Effort is used on the Internet
+
+IP Phone startup process
+1) (Phone) Obtains power
+2) (Phone) Loads locally stored image with previous configuration
+3) (Switch) will provide VLAN information via CDP/LLDP-MED
+4) (Phone) Obtain IP address via DHCP
+5) (Phone) Downloads firmware/configuration from TFTP
+6) (Phone) Register with CUCM
+7) (Phone) Downloads softkeys template
+
+IP Phone POE
+- 6.3W = POE
+- 15.4W = 802.3af POE - applies DC current to cable, if resistance (25K Ohm resistance), then supply POE
+- 30W = 802.3at POE+
+> POE Class
+4 - >15.4W - 802.3at (POE+)
+3 - 15.4W - Full power (POE)
+2 - 7W - Medium power (POE)
+1 - 4W - Low power (POE)
+0 - 15.4W - default (POE)
+
+==Show POE usage==
+R1>en
+R1#show power inline
+==Change POE power==
+**Always on auto. Cannot use specific power
+R1#conf t
+R1(config)#int f0/1/0
+R1(config-if)#power inline auto [or never]
+==See details==
+R1>show cdp neighbor detail
+
+**IP Phones use the enhanced LLDP MED (Media Endpoint Discovery) instead of the standard LLDP
+
+==[Not Recommended - Old Configuration] Configure Data and Voice VLAN==
+> Data VLAN 1 10.1.10/24
+> Voice VLAN 2 10.1.2.0/24
+> PC (VLAN 1) -> IP Phone (VLAN 2) -> Switch
+**This method uses 802.1q between switch and IP Phone
+uc500#conf t
+uc500(config)#vlan 2
+uc500(config-vlan)#name VV
+uc500(config-vlan)#int f0/1/1
+uc500(config-if)#switchport mode access
+uc500(config-if)#switchport access vlan 2
+uc500(config-if)#int range f0/1/1 - 3
+uc500(config-if-range)#switchport trunk encapsulation dot1q
+uc500(config-if-range)#switchport mode trunk
+uc500(config-if-range)#switchport trunk native vlan 1 [default ethernet for PC]
+uc500(config-if-range)#switchport voice vlan 2
+> All VLANs will be allowed this port at the moment, manually prune trunk so all traffic won't go through the IP Phone (older IP phones will turn itself off when it receives too much traffic)
+uc500(config-if-range)#switchport trunk allowed vlan 1,2,1002-1005
+
+==[Recommended - Multiple VLAN Access Ports] Configure Data and Voice VLAN==
+> PC (VLAN 2) -> IP Phone (VLAN 2) -> Switch
+**PC is also on VLAN 2 because it is one access port
+**Learned from previous lecture, Access Port only belongs to a single VLAN, this is not actually true
+**This method uses 802.1p between switch and IP Phone, prioritizing voice traffic (CoS Class of Service field of 5) allowing high priority than data traffic 
+**Advantages? 
+- Multi-VLAN access port is secured
+- Voice VLAN ID can be discovered using CDP/LLDP-MED
+- Scalable (allocate seperate subnet for PC and Phone)
+- Easier to implement QoS, ACLs, security
+- Minimize cabling - using a single port for both PC with IP Phone
+uc500#conf t
+uc500(config)#vlan 2
+uc500(config-vlan)#name VV
+uc500(config-vlan)#int range f0/1/1-3
+uc500(config-if-range)#switchport mode access
+uc500(config-if-range)#switchport voice vlan dot1p
+uc500(config-if-range)#switchport access vlan 2
+
+802.1Q Frame
+(Dest)(Src)(Tag)(Len/Etype)(Data)(FCS)
+- Inserts a tag (TPID, PRI, CFI, VLAN ID)
+> PRI field is XXX (0,1), higher the value, the more priority.
+**Voice has PRI # of 101 = 5
+**Voice has VLAN ID of 0 (even though it is VLAN 2)
 
 
 
