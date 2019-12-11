@@ -551,5 +551,227 @@ uc500(config-if-range)#switchport access vlan 2
 **Voice has PRI # of 101 = 5
 **Voice has VLAN ID of 0 (even though it is VLAN 2)
 
+IP Phone - obtain IP address
+- Obtain 2 parameters from DHCP server: Option 3 = Default Router/Gateway and Option 150 = TFTP Server
+
+=======================IP Phone - Start =======================
+CUCM Cisco Unified Communications Manager DHCP 
+*Not recommended - better to use external DHCP, no scalability/redundacy
+- Designed to provide DHCP to IP Phones ONLY (up to 1000)
+
+(famous webpage) https://10.2.1.1/ccmadmin/showHome.do
+> Option 150: TFTP IPv4 address is the host IPv4 address
+
+IP Phone - obtain configuration file
+1) From TFTP server (SEPdeviceMACAddress.cnf.xml)
+2) If (1) is unavailable, attempts to download (XMLDefault.cnf.xml) contains firmware - points to CUCM Servers
+
+SCCP Skinny Call Control Protocol
+- Cisco proprietary terminal control protocol
+*Client-server protocol
+- Stimulus protocol - every event, end device sends message to CUCM
+- CUCM controls IP phone	
+
+SCCP TLDR
+- Whatever phone wants to do, SCCP will say do it
+1) Phone -> SCCP, SCCP says sure, do that 
+2) SCCP -> Phone will do
+~RTP stream is direct between 2 phones (bypass CUCM)
+
+Session Initiation Protocol (SIP)
+- Open standard (compared to SCCP)
+*Peer-peer protocol
+- Limited features, b/c not Cisco
+
+uc500
+- It is a router, switch, firewall, voice mail system in a single device
+
+uc500 commands
+uc500#show version
+uc500#show voice port sum
+=======================IP Phone - End=======================
+
+EIGRP Enhanced Interior Gateway Routing Protocol
+**Best route based on: Bandwidth, Load, Delay, Reliability
+- Used for exchanging routes between routers
+- Cisco Proprietary (industry standard: OSPF)
+- Classless (subnet mask included with route)
+- Support discontiguous networks, auto-summarization is enabled by default
+- Above Layer 3 (Network) port 88
+- Uses RTP Reliable Transport Protocol because below TCP/UDP layer 4 (NOT Realtime Transport Protocol in VoIP)
+- Advanced distance vector protocol
+- Uses link-local multicast 224.0.0.10, unicast, not broadcast (IGRP uses broadcast)
+- Features Hybrid: Takes best principals from (Link State Routing Protocol and Distance Vector Routing Protocol)
+- Features 100% loop free classless routing - DUAL Diffusing Update Algorithm (OSPF uses SPF algorithm)
+- Features Partial updates send to pre-existing neighbours and Full updates on new neighbours (RIP sends entire routing table every 30seconds, OSPF database synchronization every 30 minutes)
+- Features load balancing across equal and unequal cost paths (10packets in 10mbs link and 2packets in 2mbs link) - can use lower speed links
+- Features Rapid Convergence - backup routes (Feasible Successors) are pre-calculated
+> Back-up routes is immediately installed in routing table when best route (Successor) is lost
+> In RIP, when the best route is lost, back-up routes are calculated then, whereas EIGRP, routes are pre-calculated
+ 
+EIGRP Packet Types
+> Hello: Estbalish neighbor relationships on multicast 224.0.0.10 using MD5 authentication
+	- Hold timer: Determine if neighbor has failed
+> Update: Send routing updates
+> Query: Ask neighbors about routing information
+> Reply: Respond to Query
+> ACK: Acknowledge a reliable packet
+
+EIGRP Autonomous System #
+- Must be the same AS to form neighbor relationships and exchange routes
+- Metric weights must match (K values)
+
+EIGRP K values
+**K valuve used to determine best path and route to destination
+- Values from 0 - 255
+K1 = Bandwidth modifier
+K2 = Load modifier
+K3 = Delay modifier
+K4 = Reliability modifier
+K5 = Additional Reliability modifier
+
+EIGRP Metrics
+**Metrics weights must match
+K Values are not metrics themselves, 0-255
+- 6 K values in total, but the below 4 are used in vector computing
+K1 = Bandwidth (default = 1)
+> slowest bandwidth between source and destination
+K2 = Load (0) [by default, not used]
+K3 = Delay (1)
+> 10s of ms, cumulative interface delay from your router to destination network
+K4 = Reliability (0) [by default, not used]
+~K5 = Additional Reliability modifier (0)
+- Last 2: MTU Maximum Transmission Unit, Hop count
+**Load and Reliability, if not used is in EIGRP because it was originally used by IGRP and was kept during migration
+***Composite Metric Formula = Final Value of all K values
+***Metric = 256 * (bandwidth + delay)
+Metric = 256 * (bandwidth of slowest link + sum of delays) since all other values are 0 or not used	
+
+MTU
+- Maximum amount of data that you can insert in a single packet over a physical medium
+- MTU is exchanged in EIGRP packets
+- Used as a tie breaker between 2 equal paths, those with the lowest MTU is not used, only for INBOUND updates
+
+Hop count
+- Maximum 255 or 224
+- Used to limit EIGRP AS to 255 or 224 hops
+
+EIGRP TLDR
+1) EIGRP routers send "hello" by default on multicast 224.0.0.10
+2) EIGRP routers listens for "hello" on interfaces with EIGRP enabled
+3) Once received "hello", those neighbours are added to EIGRP neighbor tables
+4) EIGRP table is populated from its learned EIGRP neighbours along with its interface
+5) EIGRP Topology table contains not only the best routes, but all the routes learned (successor routes, fessible routes, distances)
+6) EIGRP will use composite metric to determine the best routes, and put those best routes in the EIGRP routing table (successor routes)
+
+==Show EIGRP==
+R1#show ip prot
+R1#show ip eigrip topology x.x.x.x 255.255.255.255
+==Setup EIGRP==
+> Do this on both routers, then it will connect R1 <-> R2
+R1#conf t
+R1(config)#router eigrp 100 (this is the AS)
+R1(config-router)#network 10.0.0.0 
+[Optional] R1(config-router)#metric weights 0 1 0 1 0 0  (K0 K1 K2 K3 K4 K5)
+R2#conf t
+R2(config)#router eigrp 100 (this is the AS)
+R2(config-router)#network 10.0.0.0  
+[Optional - enable EIGRP on all interfaces] R2(config-router)#network 0.0.0.0 255.255.255.255
+==Change Bandwidth/Delay==
+R1(config)#int s0/1
+R1(config-if)#bandwidth 64
+R1(config-if)#delay 1000
+==Show EIGRP==
+> Shows the neighboring device wtih EIGRP enabled along with its interface
+R1#show ip eigrp neigh
+> Shows the topology
+R1#show ip eigrp topology
+**P 2.0.0.0 .......... FD is 40640000
+....................... <40640000/128256>, Serial 1/0
+> To get to 2.0.0.0, Feasible Distance is the total cost to get to that route is 40640000
+> Advertise distance: 128256 (from Router 2 to Router 1) 
+> Total cost (feasible distance) = Advertise distance + cost of the link
+
+EIGRP Dual Algorithm
+- Selects lowest-cost, loop-free  paths to each destination
+- AD Advertise Distance: cost between next-hop router and destination (cost for EIGRP neighbour to reach destination
+- FD Feasible Distance: cost from local router = AD + cost between local router and the next hop router
+R1 <-> R2 <-> R3
+**The FD for R1 -> R3 is R1 = Distance of R2->R3 + Distance of R1->R2
+
+EIGRP Dual Algorithm..
+***No need to recalculate, Feasible successor is ready for when Successor goes down
+- Successor = main route
+- Feasible successor = backup route (chosen based on the alternative route's AD must be lower than FD)
+ex. R4: FD = 25
+R2: FD = 35 (AD = 15)
+R5: FD = 50 (AD = 30)
+> Since R2's AD is 15, it can become the Feasible successor. R5 however cannot be chosen as Feasible successor because AD > FD.
+**Once R4 goes down, R2 will immediately become the Successor route
+ex. Becomes...
+R2: FD = 35 (AD = 15)
+R5: FD = 50 (AD = 30), since 30 < 35, then R5 becomes the new Feasible successor
+**If 2 path's AD are the same, there will be no Feasible successor (require neighbours to determine successors) and may be hidden from the command "R1#show ip eigrp topology", therefore we need to use "R1#show ip eigrp topology all-links"
+
+**Recall K-number and AS MUST MATCH
+
+EIGRP Load Balancing
+- Supports both Equal and Unequal load balancing
+- Default "maximum metric variance = 1": Equal cost load balancing (1) and 4 routes with minimum metric
+- Support up to 16 routes using 'maximum-path' command
+
+EIGRP Unequal Load Balancing
+- Variance must be changed to utilize Unequal Load Balancing, default is set to 1
+- Variance is the multiplier by taking the path with the smallest cost and multiplies it by Variance
+*2 Conditions must be met:
+1) FD > AD
+2) FD * Variance > current path cost
+
+EIGRP auto summarization
+- EIGRP is a classless protocol, but by default, auto summarization is turned on - it is best to turn this off immediately
+ex. R1 (10.1.1.0 /24 f0/0) <-> R2 (10.0.0.0/8 f0/0 & f0/1) <-> R3 (10.1.2.0/24 f0/1), R2 will send packets to both R1 and R3 if auto summarization is not turned off. R1 will ping R3 and following will happen:
+> ping 10.1.1.1
+> result: .!.!.
+R1 -> R2 -> R3
+R1 -> R2 -> R1
+R1 -> R2 -> R3
+R1 -> R2 -> R1
+R1 -> R2 -> R3
+***This happens because although 10.1.1.0 is advertised as /24, its 10.X.X.X roots is /8
+- After auto-summary is turned off, then the route looks as follows...
+> R2 (10.1.1.0/24 f0/0 & 10.1.2.0/24 f0/1)
+- Note: Also after no auto-summary, Null0 routes and summarized routes are removed
+
+==Turn off EIGRP Auto-summary==
+R1#conf t
+R1(config)#router eigrp 100
+R1(config-router)#no auto-summary
+
+EIGRP MD5 authentication
+- Support ONLY MD5 Hashing
+- Hashes an arbitary length into 128bit value
+- Every EIGRP update (send & receive) includes the hash for authentication
+- Each participating neighbor must have the same key ID & key string
+- EIGRP interface can interact with RIP interface, but must specify which keychain the interface will use
+
+==Setup key ID & key string==
+R1#conf t
+R1(config)#key chain nameOfKeyGroup (name of key group)
+R1(config-keychain)#key numericValue (key ID)
+R1(config-keychain-key)#key-string stringValue (key string)
+==Setup key group with EIGRP==
+> R1 s1/0 <-> s1/0 R2 
+R1(config-keychain-key)#int s1/0
+R1(config-if)#ip authentication mode eigrp 100 md5
+R1(config-if)#ip authentication key-chain eigrp 100 nameOfKeyGroup
+R2#conf t
+R2(config)#key chain nameOfKeyGroupDoesNotNeedToMatchHere (name of key group)
+R2(config-keychain)#key numericValue (key ID)
+R2(config-keychain-key)#key-string stringValue (key string)
+R2(config-keychain-key)#int s1/0
+R2(config-if)#ip authentication mode eigrp 100 md5
+R2(config-if)#ip authentication key-chain eigrp 100 nameOfKeyGroupDoesNotNeedToMatchHere
+==Show key chain==
+R1#show key chain
 
 
