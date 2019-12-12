@@ -1,1 +1,146 @@
 
+For EIGRP to work:
+- EIGRP Neighbor must be on common subnet
+- Neighbor K values must be equal 
+- Neighbor AS must be equal
+- Note: Access List can block EIGRP
+
+==See EIGRP info==
+R1#show ip protocols
+R1#show ip eigrp interfaces
+
+_______________________________________________________
+
+===EIGRP Simulations - Section485===
+Enable EIGRP in AS 100
+Advertise all networks using the classful mask
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router eigrp 100
+Router1(config-router)# network 10.0.0.0
+Router2> en
+Router2# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router2(config)# router eigrp 100
+Router2(config-router)# network 10.0.0.0
+
+_______________________________________________________
+
+===EIGRP Simulations - Section486===
+
+Enable EIGRP in AS 100
+192.168.1.1/28 Advertise FastEthernet 0/0 in EIGRP using the exact network mask
+10.1.1.1 /24 Advertise the Serial 0/0 interface using the exact network mask
+172.16.1.1/32 Advertise Loopback 0 in EIGRP using the exact network mask
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router eigrp 100
+Router1(config-router)# network 192.168.1.0 0.0.0.15
+Router1(config-router)# network 10.1.1.0 0.0.0.255
+Router1(config-router)# network 172.16.1.1 0.0.0.0
+
+_______________________________________________________
+
+===EIGRP Simulations - Section487===
+
+Enable EIGRP in AS 100 on Router1. Router2 has already been configured
+Router1's Ethernet IP address is 10.1.1.1/24
+Router1's Serial 0/1 IP address is the first in the subnet (192.168.168.184/30)in the diagram
+Use IP address masks to advertise both networks (use /32 mask)
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router eigrp 100
+Router1(config-router)# network 10.1.1.1 0.0.0.0
+Router1(config-router)# network 192.168.168.185 0.0.0.0
+
+_______________________________________________________
+
+===EIGRP Simulations - Section488===
+
+Enable EIGRP in AS 100 with as few commands as posible to get a fully functioning network, but without using the network 0.0.0.0
+Sart with Ethernet 0 (192.168.1.1/28), then Loopback 0 (172.16.1.1 /32) and then Serial 0 (10.1.1.1 /24)
+Make sure that EIGRP advertises routes correctly (Hint: VLSM)
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router eigrp 100
+Router1(config-router)# network 192.168.1.1 0.0.015
+Router1(config-router)# network 172.16.0.0
+Router1(config-router)# network 10.0.0.0
+Router1(config-router)# no auto-summary
+
+_______________________________________________________
+
+==Configure Gateway/default route==
+R1#conf t
+R1(config)#ip route 0.0.0.0 0.0.0.0 192.168.1.254
+==Redistribute/External EIGRP==
+> Advertise this default route to EIGRP neighbors
+R1(config)#router eigrp 100
+R1(config-router)#redistribute static metric 10000 100 255 1 1500
+**Previously, If redistribute is not applied, then all routes are Internal EIGRP (90). But Gateway of Last Resort is from External EIGRP (170)
+
+==NAT setup==
+f0/0 R1 f0/1 <-> Cloud
+R1#conf t
+R1(config)#int f0/1
+R1(config-if)#ip nat outside
+R1(config-if)#int f0/0
+R1(config-if)#ip nat inside
+R1(config-if)#exit
+==PAT / NAT Overload Access List setup==
+> Permit all devices on the 10 network
+R1(config)#ip nat inside source list 1 interface f0/1 overload
+R1(config)#access-list 1 permit 10.0.0.0 0.255.255.255
+==Enable DNS==
+R1(config)#ip domain-lookup
+R1(config)#ip name-server 8.8.8.8
+
+_______________________________________________________
+
+OSPF Open Shortest-Path First
+- Mix routes between diff vendors
+- Dijkstra Algorithm used for determining best route to destination
+- Link state running protocol
+> Link: router interface
+> State: description of interface and its relationship to neighboring routers
+- Collection of Link State = topological database / link state database
+- Create neighbors by sending out Hellos using multicast 224.0.0.5 or unicast
+- Above layer 3 (IP), below layer 4 (TCP 6/UDP 17)
+- Port 89
+- Default, synchronized every 30 minutes
+
+OSPF Tables
+1) IP OSPF Neighbor Table 
+- List of neighbors shown in Adjacency Table / OSPF Neighbor Table
+==Show Table=
+R1#show ospf neighbors
+2) IP OSPF Topology Database (LSDB Link State Database)
+- LSDB contains all routers and attached links in area/network
+- All OSPF routers in the same area share the same database
+3) IP Routing Table (Forwarding Table)
+- Best routes are placed here
+
+OSPF Packet Types
+1) Hello
+- Dynamically discover neighbors, forms and maintains those neighbors
+- Discover Frequency: Ethernet (10 seconds)
+- Discover Frequency: Serial/NBMA Non-broadcast multi-access environment (30 seconds)
+- Dead Timer (if no response to Discover within Dead Timer, relationship is torn down)-> 4 times the Hello interval
+2) DD/DBD Database Description
+- Brief overview of LSA Link State Advertisements
+3) LSR Link State REquest 
+- If DD/DBD is missing information, request for FULL LSA information
+4) LSU Link State Update
+- Contains FULL LSAs in response to LSR
+5) LSAck Link State Acknowledgement 
+- Confirm receipt of LSU
+
+
