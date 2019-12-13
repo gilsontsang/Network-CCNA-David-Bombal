@@ -331,13 +331,32 @@ EIGRP1 <-> OSPF1(Area1) <-> OSPF2(Area0) <-> OSPF3 (Area0)
 
 LSA Link State Advertisement
 1) Router LSA (Type 1)
-- Routers
+- Router ID of directly connected routers
 2) Net LSA (Type 2)
-- Advertised by Designated Routers
+- Router ID of intra-routers
 3) Summary Net LSA (Type 3)
-- Advertised routes from different areas into OSPF
+- Router ID of inter-routers
 4) Summary ASB Autonomous System Border Router (Type 4)
-- AS Border routers
+- Router ID of ABRs Area Border Routers
 5) Type 5 LSA
-- Outside of OSPF
+- Router ID of external LSA
+
+**OSPF Areas must border/touch Area 0 (Backbone)
+**All areas must be adjacent to Area 0
+(GOOD) Area 1 <-> Area 0 <-> Area 2
+(GOOD) Area 1 <-> Area 0 <-> Area 1
+(BAD) Area 1 <-> Area 2 <-> Area 0 (Area 1 and not bordering Area 0 - otherwise Area 1 must attach to Area 0 via Virtual Link/Tunnel)
+
+==Create Virtual Link/Tunnel==
+**Virtual Links must use Router ID (not IP Address)
+**Virtual Links are labelled "DNA" Do Not Age
+**No election takes place on Virtual Links
+R3 Area 0 (Router ID = 3.3.3.3) <-> Area 1 <-> R5 Area 2 (Router ID = 5.5.5.5)
+R3(config)#router ospf 1
+> Area 1 is the Area we can traversing
+R3(config-router)#area 1 virtual-link 5.5.5.5 
+>From R5
+R5(config)#router ospf 1
+R5(config-router)#area 1 virtual-link 3.3.3.3
+
 
