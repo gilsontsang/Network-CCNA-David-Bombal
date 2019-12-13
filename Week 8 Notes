@@ -1,4 +1,3 @@
-
 For EIGRP to work:
 - EIGRP Neighbor must be on common subnet
 - Neighbor K values must be equal 
@@ -143,4 +142,202 @@ OSPF Packet Types
 5) LSAck Link State Acknowledgement 
 - Confirm receipt of LSU
 
+OSPF Hierarchy (Areas)
+- OSPF's network is its own AS
+- When multiple OSPF's are used, they are broken up into Areas (Area 0 is the back bone - all traffic will traverse the backbone)
+**Both sides of the link must be in the same Area
+- Cisco recommends no more than 50 routers in a single Area
+- Areas are useful in stopping the flood of LSA by breaking up the network into multiple areas
+- Routers that border the backbone area and another area is known as ABR Area Border Routers 
+- ABRs are also backbone routers
+- Routers that borders 2 AS (could be same or different routing systems), are call ASBR Autonomous Systems Border Routers (could be RIP and EIGRP)
+
+OSPF ABR
+- BENEFITS: Summarization of routes
+ex. Area 1: 10.1.1.0/24 - 10.1.100.0/24, the ABR can summarize the routes as 10.1.0.0 /16
+ex. Area 1: 10.2.1.0/24 - 10.2.100.0/24, the ABR can summarize the routes as 10.2.0.0 /16
+
+OSPF Router ID
+- Chosen based on:
+1) Manual configuration
+2) Highest Loopback interface (never go down) 
+3) Highest IP address (physical interface) 
+4) Everything else
+
+==Specify OSPF Router ID==
+> High IP address is 10.1.1.1
+*****using ospf 1 is local to the router, it does not need to match other routers
+R1#conf t
+R1(config)#router ospf 1
+==Refresh OSPF Router ID (assume there is a higher IP address than current)==
+R1(config)#no router ospf 1
+R1(config)#router ospf 1
+==Manual OSPF Router ID==
+R1(config)#router ospf 1
+R1(config-router)#router-id 192.168.1.1 (arbitrary)
+==Setup OSPF Network==
+> This step is needed, otherwise OSPF will not work
+R1(config-router)#network 10.1.1.0 0.0.0.255 area 0
+==Show OSPF info==
+R1#show ip ospf int
+R1#show ip ospf int brief
+R1#show ip ospf neighbor
+R1#show ip ospf database
+==Enable OSPF inside interface==
+R1(config)#int g0/0
+R1(config)#ip address 10.1.1.0 0.0.0.255
+R1(config-if)#ip ospf 1 area 0 (?)
+==Configure OSPF timers==
+> To adjust timers, simply adjust it to Broadcast, it might be set to Non-Broadcast
+R1(config)#int g0/0
+R1(config-if)#ip ospf network broadcast
+
+OSPF Hello Packet
+> Must be the same:
+1) Hello and Dead intervals
+2) Area ID
+3) Authentication password
+4) Stub area flag
+
+OSPF DR Designated Router
+- Criteria for DR: Chosen based on highest priority
+*Priority is from 1-255 (0 excludes the router from being a DR) - default = 1, disable = 0
+- DR/BDR can see 224.0.0.6 multicast update
+- All other routers sees 224.0.0.5
+
+OSPF DR Process
+R1 (DR) <-> R2 (BDR Backup DR) <-> R3,4,5,6
+1) R1 goes down, R1 updates R2 through multicast 224.0.0.6
+2) R2 receives multicast 224.0.0.5, that R1 went down
+3) R2 sends multicast 224.0.0.5 to all OSPF routers R3,4,5,6
+4) All active OSPF routers are now acknowledged that network has gone down
+**If no DR, then all routers are adjaceny routers and all routers will multicast to each other (saves update and duplicated traffic)
+**Only Main DR and Backup DR has full relationships with all OSPF routers
+**Every ethernet segment requires the maintenance and electric of its own DR (10.1.1.0/24 and 10.1.2.0/24 are two different)
+***DR is not preemptive (ex. if R2 (priority 10) goes down and R5 (priority 5) becomes DR and R3 becomes BDR and if R2 comes back online, R2 will not become DR again because DR already exist even though R2 has highest priority - not preemptive. R2 will become DRO DR Other) - will not host another election
+
+OSPF SPF Algorithm
+- Default reference bandwidth = 100mbps (cost of 1)
+- Cost = 10^8 / bandwidth 
+(Note: Bandwidth of 10Mbps = 10,000,000bps, therefore Cost of 10Mbps = 100,000,000 / 10,000,000 = 10)
+(Note: Bandwidth of 1.544Mbps = 15,440,000bps, Cost = 64)
+
+==Change reference bandwidth==
+R1(config)#auto-cost reference-bandwidth X
+==Change cost of an interface==
+R1(config-if)#ip ospf cost X
+
+OSPF stub nssa
+- stub stubby area (i.e. loopback)
+- nssa not so stubby area
+- stub and nssa is used for reducing the routes in the routing table
+Note: "Initial SPF schedule delay 5000 msecs" - when a network is going down or a new network is added, OSPF will wait 5 seconds allowing OSPF to stablize before running the new SPF algorithm
+
+*****
+==Total OSPF setup==
+R1#conf t
+R1(config)#interface f0/0
+R1(config-if)#ip address 10.1.1.1 255.255.255.0
+R1(config-if)#no shut 
+R1(config-if)#interface f0/1
+R1(config-if)#ip address 10.1.2.1 255.255.255.0
+R1(config-if)#no shut 
+R1(config-if)#router ospf 1
+R1(config-router)#network 10.1.1.1 0.0.0.0 area 0
+R1(config-router)#network 10.1.2.1 0.0.0.0 area 0
+R1(config-router)#interface loop 0
+R1(config-if)#ip address 1.1.1.1 255.255.255.255
+R1(config-if)#router ospf 1
+R1(config-router)#network 1.1.1.1 0.0.0.0 area 0
+> OR enable all networks [R1(config-router)#network 0.0.0.0 255.255.255.255 area 0]
+*Routers that are connected to each other (usually via Serial) is Point-to-Point. 
+**Point-to-Point does not require an election
+***Even if loopback's network is not a part of the OSPF interface, loopback's network will be the Router ID
+==Optional:Change Router ID manually==
+R1(config-router)#router-id 1.1.1.1
+R1(config-router)#clear ip ospf process
+
+OSPF Network Type
+- Broadcast = fastEthernet 
+- Point_to_Point = Serial
+
+OSPF Link Count
+- 2 = Serial (point-to-point: 1 - transmitter's IP address, 1 - receiver's IP address)
+- 1 = fastEthernet
+- 1 = loopback 
+ex. router with 2x serial interfaces, 1 fastEthernet and 1 loopback = Link Count of 6
+
+OSPF Link Count ex.
+R1 10.1.2.1 255.255.255.0 <-> R2 2.2.2.2
+1) Point-to-Point (Link connecting to neighboring router)
+Link ID: 2.2.2.2
+Link Data: 10.1.2.1
+2) Stub Network (Actual subnet on point-to-point link)
+Link ID: 10.1.2.0
+Link Data: 255.255.255.0
+
+OSPF States
+Full - Between DR and BDR
+2WAY - Between DROTHER DR Other
+
+**DR and BDR relations do not take place on Serial links
+***DR, BDR or DROtherare elected per segment basis (only on multiaccess links), not per router. I.e. if R1 has g0/0 and g0/1, one can be DR and the other can be BDR
+
+OSPF DR Election Process
+1) Hello packets are exchanged via IP multicast packets on each segment
+2) Router with highest OSPF priority on a segment becomes the DR (default OSPF priority = 1, do not elect = 0)
+3) Process repeats for BDR
+4) In case of tie, router with highest RID will win
+5) Priority of 0 will become the DROTHER
+
+**OSPF DR Election Priority
+1) Highest priority 
+2) Highest router ID
+**Router ID is not based on the interface's IP address, but on the highest IP address on the Router
+**Router ID must be UNIQUE
+3) Highest Loopback IP address
+4) Highest configured physical interface address
+
+~Turning an expensive router into a PC
+- Default gateway is set, therefore "no ip rout" was used
+
+==Turn on logging==
+R1(config)#logging console
+==Turn on logging (telnet/ssh)==
+R1(config)#term mon
+
+***Router Types
+- ABR Area Border Router - separate routers with different areas, always touch Backbone
+- ASBR Autonomous System Border Router - seperates routers with different routing protocols (between EIRP and OSPF)
+- Internal Router - does not touch other routers
+
+==Convert EIGRP to OSPF (ABR Area Border Router)==
+> Recall: EIGRP uses Bandwidth and Delay to determine best route
+> Recall: OSPF only understands Bandwidth, therefore, we need to specify a seed metric
+R1(config)#router eigrp 100
+R1(config-router)#network 10.1.1.2 0.0.0.0
+> Advertising OSPF in EIGRP
+R1(config-router)#router ospf 1
+R1(config-router)#network 10.1.2.1 0.0.0.0 area 1
+> Advertising EIGRP in OSPF
+R1(config-router)#redistribute eigrp 100 
+R1(config-router)#redistribute ospf 1 metric 10000 1000 255 1 1500 [memorize this]
+
+EIGRP1 <-> OSPF1(Area1) <-> OSPF2(Area0) <-> OSPF3 (Area0)
+**OSPF3#show ip route
+> OSPF2 is an "Intra-area OSPF Route" (local)
+> OSPF1 is an "Inter-area OSPF Route" (different local)
+> EIGRP1 is an "External route" (different routing protocol)
+
+LSA Link State Advertisement
+1) Router LSA (Type 1)
+- Routers
+2) Net LSA (Type 2)
+- Advertised by Designated Routers
+3) Summary Net LSA (Type 3)
+- Advertised routes from different areas into OSPF
+4) Summary ASB Autonomous System Border Router (Type 4)
+- AS Border routers
+5) Type 5 LSA
+- Outside of OSPF
 
