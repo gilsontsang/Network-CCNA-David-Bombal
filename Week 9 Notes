@@ -1,1 +1,244 @@
 
+==Display ip routing protocols==
+R1>en
+R1#show ip proto
+==Display the routing table==
+R1#show ip route
+==Display OSPF errors in real time==
+R1#display ip ospf events
+==Display OSPF neighbors==
+R1#show ip ospf neigh
+==Display OSPF interfaces==
+R1#show ip ospf int
+==Display OSPF everything==
+R1#show ip ospf database
+
+
+
+
+
+==OSPF Simulations - Section514===
+
+Enable OSPF using process number 1
+Advertise network 10.0.0/8 in area 0 using a classful mask
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router ospf 1
+Router1(config-router)# network 10.0.0.0 0.255.255.255 area 0
+
+_______________________________________________________
+
+==OSPF Simulations - Section515===
+
+Enable OSPF with process number 1
+An IP address of 192.168.1.1/28 is configured on Ethernet 0. Advertise this network in OSPF area 0 using an exact network mask.
+172.16.1.1/32 is configure on loopback 0. Advertise the loopback in area 1 using an exact network mask.
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router ospf 1
+Router1(config-router)# network 192.168.1.0 0.0.0.15 area 0
+Router1(config-router)# network 172.16.1.1 0.0.0.0 area 1
+
+_______________________________________________________
+
+==OSPF Simulations - Section516===
+
+Enable OSPF with process number 1
+Router1's Ethernet IP address is 10.1.1.1/24
+Router1's Serial 0/1 IP address is the first in the subnet in the diagram
+Use host masks (32) to add both interfaces to area 0
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router ospf 1
+Router1(config-router)# network 10.1.1.1 0.0.0.0 area 0
+Router1(config-router)# network 192.168.168.185 0.0.0.0 area 0
+
+_______________________________________________________
+
+==OSPF Simulations - Section517===
+
+Enable OSPF on the routers with process id 1
+Start with E0, then S0, then loop 0 and advertise each network using exact network masks
+Inject a default route into the network on R1
+Ethernet 0: 192.168.1.1/28 (Area 1)
+Serial 0: 10.1.1.1/30 (Area 0)
+Loopback 0: 172.16.1.1/32 (Area 0)
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router ospf 1
+Router1(config-router)# network 192.168.1.0 0.0.0.15 area 1
+Router1(config-router)# network 10.1.1.0 0.0.0.3 area 0
+Router1(config-router)# network 172.16.1.1 0.0.0.0 area 0
+Router1(config-router)# default-information originate
+
+_______________________________________________________
+
+==OSPF Simulations - Section519===
+
+Enable OSPF with process number 1. Put interfaces into OSPF using a host mask(/32)
+Router is configured with the first IP address in the same subnet as host 10.185.185.255/25
+Router is configured with the last IP address in the same subnet as host 172.16.195.195/23
+Router is configured with the first IP address in the same subnet as 192.168.168.168/27
+
+172.16.195.195 /23
+
+195
+128 64 X X X 4 X 1
+                |
+195
+---
+192.168.168.168 /27
+
+168
+128 X 32 X 8 X X X 
+1 0 1 0 1 0 0 0
+     |    
+160
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router ospf 1
+Router1(config-router)# network 10.185.185.129 0.0.0.0 area 0
+Router1(config-router)# network 172.16.195.254 0.0.0.0 area 0
+Router1(config-router)# network 192.168.168.161 0.0.0.0 area 0
+
+_______________________________________________________
+***
+==OSPF Simulations - Section523===
+
+Configure plain text OSPF authentication on the FastEthernet 0/0 interface of Router 1
+Use a password of cisco
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# int f0/0
+Router1(config-if)# ip ospf authentication
+Router1(config-if)# ip ospf authentication-key cisco
+
+
+_______________________________________________________
+***
+==OSPF Simulations - Section527===
+
+Configure OSPf with process id 1
+Configure OSPF to load balance over 10 equal paths
+Configure the OSPF cost of FastEthernet 0/0 to 100
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# router ospf 1
+Router1(config-router)# maximum-paths 10
+Router1(config-router)# int f0/0
+Router1(config-if)# ip ospf cost 100
+_______________________________________________________
+
+IPv6 vs IPv4
+- IPv6 128bit 3.4x10^38 addresses
+- IPv4 32 bit 4.3million addresses
+- All OSI layers stays the same
+- IPv6 can have multiple primary IP addresses
+- IPv4 can only have 1 primary IP address
+
+IPv6 addresses
+- Not case-sensitive
+- Leading zeros are optional
+- Successive fields of zeros can be represented as ::, but only once per address
+**Every IPv6 interface contains at least 1 loopback ::1/128
+ex. 2001:0123:0000:0000:FFFF:0000:0000:0ABC = 2001:123::FFFF:0:0:ABC
+> Loopback = ::1
+> Unassigned Address = :: (all zeros)
+- Surfing the web @ 2001:123:4567::8, user would need to enter
+ex. http://[2001:123:4567::8]:8080/index.html
+
+IPv6 Unicast Addresses
+- Global Unique Unicast - NAT no longer needed
+- Reserved Unicast Addresses
+- Link Local unicast address (routers do not forward Link Local addresses) - used for automatic addresses config, neighbour/router discovery
+- Site Local unicast address RFC3879 - private addresses assigned to an entire site similar to RFC1918 (Deprecated in 2004) - no longer used
+
+IPv6 Multicast
+- One-to-many, replaced Broadcast
+ 
+IPv6 Anycast
+- One-to-nearest, used for load balancing
+
+IPv6 Unicast Address
+(Network Prefix - 64bits)(Interface identifier - 64bits)
+- No Subnetting, No NAT
+- All interface have subnet mask of /64
+- "Aggregatable Global Unicast Address" means addresses in your organization is globally unique (public IP addresses inside organization)
+
+IPv6 EUI address
+- Convert MAC address into Pv6 EUI Address (Interface Identifier 64bits)
+- Changes the 7th bit in the 64bits address to X
+> X = 1 globally managed (unique)
+> X = 0 locally managed (not unique)
+ex. 
+MAC Address -> 00 34 56 78 90 AB
+IPv6 -> 00 34 56 FF FF 78 90 AB 
+00 -> 000000X0 -> 00000000 = not unique
+
+IPv6 Aggregatable Global Unicast Address
+(Network Prefix - 64bits)(Interface identifier - 64bits)
+([Global Prefix - 48 bits][Subnet ID - 16bit])(Interface identifier - 64bits)
+([Public topology][Site topology])(Interface)
+> ISP Allocates you /48. This gives you 16bit to subnet, which gives 2^16 = 65536 subnets within your organization 
+> Your internal network will use /64 from ISP's /48 to each interface
+ex.
+Internet Registry 2001::/16 -> ISP 2001:1234::/32
+ISP 2001:1234::/32 -> Organization 2001:1234:1::/48
+Organization 2001:1234:1::/48 -> Organization subnet 2001:1234:1:2::/64 or 2001:1234:1:3::/64, etc...
+
+==Setup IPv6 address==
+R1(config)#int f0/0
+R1(config-if)#ipv6 address 2001::1/64
+==Setup IPv6 eui-64==
+**eui-64 uses the MAC address. eui-64 inserts FF:FE in the middle of the MAC address and changes the 7th bit to identify itself as locally or globally managed (1). eui-64 then becomes the host address by translating itself as an 48bit address to 64bit
+> MAC (bia burn in address) Address: c401.0fe8.0000
+> eui-64: c601:FFF:FEE8:0 (notice 4 becomes 6 becomes the 7th bit has a value of 2)
+R1(config)#interface f0/1
+R1(config-if)#ipv6 address 2001:2::/64 eui-64
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
