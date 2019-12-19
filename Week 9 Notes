@@ -1,4 +1,3 @@
-
 ==Display ip routing protocols==
 R1>en
 R1#show ip proto
@@ -16,6 +15,7 @@ R1#show ip ospf database
 
 
 
+_______________________________________________________
 
 ==OSPF Simulations - Section514===
 
@@ -210,32 +210,621 @@ R1(config-if)#ipv6 address 2001::1/64
 R1(config)#interface f0/1
 R1(config-if)#ipv6 address 2001:2::/64 eui-64
 
+IPv6 Unicast Addresses
+1) Link Local
+- Unicast, restricted to Local Link
+- Enabled by default
+- 128 bits in length, not bound to MAC address
+- 1st 10 bits: 1111 1110 10 [FE80::/10]
+- configured in EUI-64 format
+- IPv6 uses Link Local to advertise routes to one and another using routing protocols
+- Link Local addresses is also useful for when your routers' Global Unicast Address changes
+2) Site Local [Should no longer be used]
+- Unicast, restricted to the Site
+- Not Enabled by default
+- 128 bits in length
+- 1st 10 bits: 1111 1110 11 [FEC0:/10]
+**Equivalent RFC1918 addresses
+3) IPv4 compatible addresses [Should no longer be used]
+- Uses /96 mask
+- Recal IPv4 is 32bits, IPv6 is 128bits
+- Therefore... IPv4 Compatible addresses become...
+IPv6 tunnel = [96bits of 0s][32bits of IPv4 addresses]
+0:0:0:0:0:0:192.0.2.100
+=::192.0.2.100
+=::C000:0246
+> 192 = C0 because 192 = 1 1 0 0 | 0 0 0 0 = 12 | 0 = C0
+> 100 = 0 1 1 0 | 0 1 0 0 = 64
+**Bypassed by "Dynamic NAT PT Protocol Transmission"
+4) Unspecified address
+0:0:0:0:0:0:0:0 
+- initial DHCP request, DAD Duplicate Address Detection
+5) Loopback address
+0:0:0:0:0:0:0:1 (IPv4 127.0.0.1)
 
+IPv6 Multicast Addresses
+1) Assigned
+FF00::/8
+2) Solicited-Node 
+FF02.../104
+- Solicited-Node multicast address is scoped to the Local Link
+- Similar use to ARP, but ARP uses Broadcast and Broadcast is no longer supported on IPv6, Solicited-Node multicast address is used to learn about neighboring link layer addresses, neighbor nodes and routers on the same link
+**For any unicast/anycast setup on an interface, a corresponding Solicited-Node multicast address is automatically enabled
 
+IPv6 Stateless Autoconfiguration
+- Remember, Stateless because no subnetting is required
+- Enables serverless basic configuration of IP addresses, while keeping those addresses unique
+- Routers send periodic router advertisement messages using a link local address, through ICMPv6 Type 134 multicast FF02::1 (Cisco has 7 days lifetime by default) 
 
+IPv6 Stateless Autoconfiguration (How it works - How Host gets IPv6 address)
+*Don't memorize Type XXX
+1) Host sends Router solicitation to all routers using FF02::2 (ICMPv6 Type 133 - Router solicitation), asks for IP address immediately
+- Host uses it's link local address FE80::X/10 (with its EUI) as source
+2) Router replies (ICMPv6 Type 134 - Router advertisement)
+- Router uses it's link local address FE80::Y/10 (with its EUI) as source
+- Router uses destination FF02::1 (ICMPv6 Type 134)
 
+IPv6 Stateless Autoconfiguration Benefits
+1) Easy Configuration of PC's IP address (DHCP ish...)
+- Configure IP Address on router, by default, router advertisements are enabled
+- PCs will automatically learn Prefix assigned to them and Default Gateway, without administrator configuration DHCP server (host automatically configured - combined with its IPv6 link local address with its EUI allows PC to communicate to the network
+2) Easy renumbering of IP addresses
+- Routers can advertise a new prefix, and timeout the old prefix and hosts will automatically be updated with new prefixes
 
+IPv6 Stateful DHCP 
+- Provides control and options (IP phones)
+- You can use Stateless Autoconfiguration and Stateful DHCP at the same time
+- Stateful DHCP can provide IPv6 addresses in absence of routers
 
+IPv6 Stateful DHCP (How it works)
+1) Host will first detect for routers using Neighbor Discovery Messages to see if router is available
+2) If router is found, Host will examine the router advertisement to see if DHCPv6 should be used
+3) If DHCPv6 is available for use or no routers are found, Host will start IPv6 solicitation phrase to find a DHCP server
+> If no DHCPv6 cannot be used, then Host uses Stateless Configuration
+4) Host sends DHCP solicit message to DHCPv6 agents using multicast address FF02::1:2
+**FF02 = multicast
+**FE80 = link local
+Host FE80::Y/10 (Y = DUI) -> DHCPv6 agents 
 
+==Enable IPv6 on Router==
+[Network = 2001:1:1:1. Host = 1]
+R1(config)#ipv6 unicast-routing
+R1(config)#int f0/0
+R1(config-if)#ipv6 address 2001:1:1:1::1/64
+R1(config-if)#no shut
+==Enable IPv6 on Router with eui-64==
+R1(config)#int f0/1
+R1(config-if)#ipv6 address 2001:2::/64 eui-64
+R1(config-if)#no shut
 
+IPv6 	DAD Duplicate Address Detection
+FF02::1 - All nodes & routers on link
+FF02::2 - All routers on link
+FF02::1:FFX:Y
+FF02::1:FFX:Z - X:Y and X:Z is the unique portion (unique node) multicast entry - this happens because of DAD Duplicate Address Detection
 
+IPv6 Routing Protocols (does not reuse IPv4 routing protocols)
+**To enable IPv6 routing protocol, use command: ipv6 unicast-routing 
+*You can run IPv4 and IPv6 routing protocol at the same time - this is called "Dual Stack"
+- Static
+- RIPng
+- OSPFv3
+- IS-IS for IPv6
+- MP-BGP4
 
+IPv6 RIPng Next Generation
+**RIP router multicast group FF02::9 - for RIP updates
+**RIP IPv4 uses multicast 224.0.0.9
+- RIP IPv6 sends RIP updates on UDP port 521 
+- Distance vector
+- Radius of 15hops (16hop = infinity)
+~split horizon, poison reverse
 
+==Display IPv6 routes==
+R1#show ipv6 route
+==Enable RIPng==
+**To enable IPv6 routing protocol, use command: ipv6 unicast-routing 
+> RIPng = randomName
+R1(config)#ipv6 unicast-routing
+R1(config)#ipv6 router rip RIPng
+> Enable on interface
+R1(config)#int f0/0
+R1(config-if)#ipv6 rip RIPng enable
+R1(config-if)#int f0/1
+R1(config-if)#ipv6 rip RIPng enable
+==Enable RIPng default route==
+> This route will show as ::/0
+R1(config-if)#ipv6 rip RIPng default-information originate
+==Create RIPng default route==
+> Create default route to serial 0/0
+R1(config-if)#ipv6 route ::/0 serial 0/0
+==Enable OSPFv3 (IPv6)==
+> OSPFv3 even though its IPv6, requires router id in IPv4 format
+> We will use 1.1.1.1
+R1(config)#ipv6 router ospf 1
+R1(config-rtr)#router-id 1.1.1.1
+R1(config-rtr)#int f0/2
+R1(config-if)#ipv6 ospf 1 area 1
+R1(config-rtr)#int f0/3
+R1(config-if)#ipv6 ospf 1 area 0
+R1(config-if)#int loop 0
+R1(config-if)#ipv6 address 2002::1/64
+R1(config-if)#ipv6 ospf 1 area 1
+> Need to enable it for both R1 and R2 for the connecting interface
+> R1 f0/3 (area 0) <-> f0/1 R2 (area 0)
+R2(config)#ipv6 router ospf 2
+R2(config-rtr)#router-id 2.2.2.2
+R2(config-rtr)#int f0/0
+R2(config-if)#ipv6 ospf 2 area 2
+R2(config-rtr)#int f0/1
+R2(config-if)#ipv6 ospf 2 area 0
+**Notice.. R2 can see R1's loopback via R2's f0/1
+==Display IPv6 OSPF Route==
+R2#show ipv6 route ospf
 
+IPv4 to IPv6 transition methods
+1) Dual Stack (run both IPv4 and IPv6)
+2) Tunneling (run IPv6 over IPv4)
 
+IPv4/IPv6 Dual Stack (How to?)
+1) [Layer 7] Application -> TCP/UDP? [Layer 4]
+2) [Layer 4] TCP/UDP -> IPv4 or IPv6? [Layer 3]
+3a) [Layer 3] IPv4 -> Type 0x800 [Layer 2]
+3b) [Layer 3] IPv6 -> Type 0x86DD [Layer 2]
+4) [Layer 2] 0x800/0x86DD -> Ethernet medium [Layer 1]
 
+IPv4/IPv6 Tunneling
+1) [Manual] Manual IPv6 over IPv4 tunnel
+2) [Auto] Dynamic 6-to-4 Tunnel 
+[don't worry] 3) ISATAP Intra site automatic tunnel addressing protocol
+[don't worry] 4) Teredo tunneling
 
+1) IPv4/IPv6 Tunneling - IPv6 over IPv4 tunnel (Manual)
+**Protocol type 41 is specified in IPv4 header for encapsulation
+[IPv6 Data][IPv6 Header][IPv4 Header][SA:1.1.1.1][DA:2.2.2.2]
+- IPv6 is sent inside IPv4 header, then stripped off IPv4 header at destination router then sent off as pure IPv6 data
+- Note. IPv4 header is 20bytes
 
+2) IPv4/IPv6 Tunneling - Dynamic 6-to-4 Tunnel (Auto)
+*Must use 2002::/16
+- R1: [2002:c0a8:6301::/48][192.168.99.1] <-> R2: [192.168.30.1][2002:c0a8:1e01::/48]
+[Sending from PC1 -> R1 -> R2 -> PC]
+1) PC1 sends packets to R1
+2) Converts IPv4 address 192.168.99.1 to hexadecimal, then add it to 2002::/16
+> 2002:c0a8:6301::/48
+3) Because of the IPv6 address, R1 knows it needs to send it to IPv4 of R2
+> R1 will then encapsulate the data into IPv4 packets to R2
+4) R2 will then decapsulate the data into IPv6 packets to PC2
+5) R2 will forward the IPv6 packets to PC2
 
+==IPv4/IPv6 Tunneling==
+> R1 s0/0 [10.1.2.1/24][2001:1:1:1::1/64]<-> s0/0 R2 [10.1.2.2/24][2001:1:1:3::1/64]
+R1(config)#int tun 0 
+R1(config-if)#ipv6 address 2003::1/64
+R1(config-if)#tunnel source 10.1.2.1
+R1(config-if)#tunnel destination 10.1.2.2
+R1(config-if)#tunnel mode ipv6ip (otherwise default is GRE)
+>Static route
+R1(config)#ipv6 route 2001:1:1:3::/64 tun 0
+R2(config)#int tun 0
+R2(config-if)#ipv6 address 2003::2/64
+R2(config-if)#tunnel source 10.1.2.2
+R2(config-if)#tunnel destination 10.1.2.1
+R2(config-if)#tunnel mode ipv6ip
+>Static route
+R2(config)#ipv6 route 2001:1:1:1::/64 tun 0
 
+==Show IPv4 interface==
+R1#show ip int brief
+==Show IPv6 interface==
+R1#show ipv6 int brief
 
+IPv6/IPv4 Proxying and translation (NAT-PT)
+> PC1 IPv4 <-> R1 <-> Server IPv6
+> PC1 only use IPv4 and Server only use IPv6, so R1 acts as a translator
 
+_______________________________________________________
 
+==OSPF Simulations - Section534===
 
+Configure the router's FastEthernet 0/0 interface with the following:
+Network IPv6: 2001:152:1:17::/64
+EUI
 
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# int f0/0
+Router1(config-if)# ipv6 address 2001:152:1:17::/64 eui-64
+_______________________________________________________
 
+==OSPF Simulations - Section535===
 
+Configure RIPng on Router1 as follows: (Router2 is configured)
+Enable IPv6 unicast routing
+Enable RIP process cisco
+Configure 2001:1:2:3::1/64 on FastEthernet 0/0
+Enable RIP process cisco on FastEthernet 0/0
+Advertise a default route out of FastEthernet 0/0
+Configure 2001:2::1/64 on Serial 0/0
+Create a default route to serial 0/0
 
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# ipv6 unicast-routing
+Router1(config)# ipv6 router rip cisco
+Router1(config-router)# int f0/0
+Router1(config-if)# ipv6 address 2001:1:2:3::1/64
+Router1(config-if)# ipv6 rip cisco enable
+Router1(config-if)# ipv6 rip cisco default-information originate
+Router1(config-if)# int serial 0/0
+Router1(config-if)# ipv6 address 2001:2::1/64
+Router1(config-if)# ipv6 route ::/0 serial 0/0
+_______________________________________________________
+
+==Config IPv6==
+> R1 int s2/0 , 2001:1::1/64
+> R2 int s2/0 , 2001:1::2/64
+> R1 loopback, 2001:FACE::1/128
+R1(config)#int loopback 0 
+R1(config-if)#ipv6 address 2001:FACE::1/128
+R1(config-if)#int s2/0
+R1(config-if)#ipv6 address 2001:1::1/64
+R2(config)#int s2/0
+R2(config-if)#ipv6 address 2001:1::2/64
+> R1#show ipv6 router. Notice, /128 appears
+**Routers will create IPv6 routes based on the unicast IPv6 address configured on the interface
+C 2001:1::/64 ... Serial 2/0 [R1]
+L 2001:1:1/128 ... Serial 2/0 [R2]
+LC 2001:FACE::2/128 ... Loopback [R1]
+**C = Connected (Directly connected physical cable)
+**L = Local (Network connection)
+**LC = Both directly connected because loopback and Network connection
+
+==Configure IPv6 SERIAL connection (static route)==
+> R1 2001:FACE:1::1/64 on Loopback | 2001:1::1/64 on S0/0 <-> R2 2001:FACE:2::1/64 on Loopback | 2001:1::2/64 on S0/0 
+R1(config)#int s2/0
+R1(config-if)#no shut
+R1(config-if)#ipv6 address 2001:1::1/64
+R1(config-if)#int loop 0
+R1(config-if)#ipv6 address 2001:FACE:1::1/64
+R2(config)#int s2/0
+R2(config-if)#no shut
+R2(config-if)#ipv6 address 2001:1::2/64
+R2(config-if)#int loop 0
+R2(config-if)#ipv6 address 2001:FACE:2::1/64
+> Static routes [Serial]
+R1(config)#ipv6 route 2001:FACE:2::1/64 serial 2/0
+R2(config)#ipv6 route 2001:FACE:1::/64 serial 2/0
+
+==Configure IPv6 ETHERNET Next Hop IP Address (static route)==
+> R1 2001:FACE:1::1/64 on Loopback | 2001:1::1/64 on f0/0 <-> R2 2001:FACE:2::1/64 on Loopback | 2001:1::2/64 on f0/0 
+R1(config)#int f0/0
+R1(config-if)#ipv6 address 2001:1::1/64
+R2(config)#int f0/0
+R2(config-if)#ipv6 address 2001:1::2/64
+> Static routes [Next Hop IP Address]
+R1(config)#ipv6 route 2001:FACE:2::/64 2001:1::2
+R2(config)#ipv6 route 2001:FACE:1::/64 2001:1::1
+
+==Show IPv6 routes==
+> IPv4 routes: R1#show ip route
+R1#show ipv6 route
+
+IPv6 DHCP options
+- DHCPv6
+- SLAAC Stateless Address Autoconfiguration
+
+IPv4 vs IPv6
+- IP Address
+- Default Gateway vs Default Router
+- Subnet Mask vs Prefix Length
+- DNS servers
+- NDP Neighbor Discovery Protocol (use Neighbors to discover and exchange info) vs ARP
+
+IPv6 NDP
+1) SLAAC Stateless Address Autoconfiguration
+- Advertise/Discover which Subnet or Prefix/length it belongs to 
+- Router dynamically allocates the network portion of address (host uses its MAC address for host portion of IP)
+- Uses DAD Duplicate Address Detection to determine no other host uses the same IP 
+2) Neighbor MAC Discovery
+- Again, no ARP and no Broadcast
+
+ICMPv6 NDP Messages
+1) Router Solicitation (RS) [FF02::2] - similarly 224.0.0.2
+- Sent to routers  
+2) Router Advertisement (RA) [FF02::1] - similarly 224.0.0.1
+- Sent by routers (includes Link-Local IPv6 address and local segment)
+*Host address numbers is kind of consistent
+
+ICMPv6 Process
+1) PC boots up, sends RS FF02::2 asks all routers to identify themselves
+2) Routers, replies RA FF02::1 with their Link-Local IPv6 address
+3) Routers will periodically advertise their details FF02::1
+
+R1#sh int g0/0
+R1#sh ip int g0/0
+R1#sh ipv6 int g0/0
+
+==Setup IPv6 Relay Agent==
+> Initial Setup
+PC <-> g0/0 R1 g0/1 <-> g0/1 2001:1234::2 DHCPServer
+R1(config)#ipv6 unicast-routing
+R1(config)#int g0/0
+R1(config-if)#ipv6 address 2001:FACE::1/64
+R1(config-if)#no shut
+R1(config-if)#int g0/1
+R1(config-if)#ipv6 address 2001:1234::1/64
+R1(config-if)#no shut
+> DHCP Server setup
+DHCPServer(config)#ipv6 unicast-routing
+DHCPServer(config)#int g0/1
+DHCPServer(config-if)#ipv6 address 2001:1234::2/64
+DHCPServer(config-if)#no shut
+DHCPServer(config-if)#exit
+DHCPServer(config)#ipv6 dhcp pool mypool
+DHCPServer(config-dhcpv6)#address prefix 2001:face::/64
+DHCPServer(config-dhcpv6)#dns-server 2001:1234::2
+DHCPServer(config-dhcpv6)#domain-name ccnax.com
+DHCPServer(config-dhcpv6)#end
+DHCPServer(config)#int g0/1
+DHCPServer(config-if)#ipv6 dhcp server mypool
+> DHCP static route to the Relay Agent
+DHCPServer(config)#ipv6 route 2001:face::/64 2001:1234::1
+> DHCP Relay Agent
+> Since R1 g0/0 will be receiving DHCP Request from PC, we will setup relay on this port
+R1(config-if)#int g0/0
+R1(config-if)#ipv6 dhcp relay destination 2001:1234::2
+> Configure PC
+PC1(config)#ipv6 unicast-routing
+PC1(config)#int g0/0
+PC1(config-if)#ipv6 address dhcp
+PC1(config-if)#ipv6 enable
+PC1(config-if)#no shut
+
+_____________________________________________
+
+WAN Technologies:
+- Frame Relay
+- ATM
+- DSL
+- PPP
+- HDLC
+
+WAN PPP Point-to-Point Protocols (aka Serial Link)
+- Provides dedicated connection between 2 sites
+- Leased Line (Monthly Fee)
+- These days, replaced by VPN using DSL used instead of PPP
+- Connection between 2 points, rather than multiple points
+
+WAN HDLC High-Level Data Link Control
+
+WIC WAN Interface Card
+- Uses T1 CSU Channel Service Unit / DSU Data Service Unit (X.21 / V.35 cable)
+
+VPN Virtual Private Networks
+- Replaced Leased Line
+
+Leased Lines 
+- Synchronous Serial Communication - one party provides the clocking for the communication
+> 2 devices will synchronized their clocks before data transfer takes place to ensure data does not get corrupted
+- CSU DSU (aka CSU) provides the clocking and is the master for communication
+- Router acts as a Slave, receives clocking from CSU
+
+DCE and DTE:
+- DCE Data Communication Equipment (ISP) -> CSU DSU (ISP's box) -> DTE Data Terminal Equipment (receives clocking from CSU DSU - onsite router)
+
+~Devices:
+WIC 1T - 1 serial cable/connection
+WIC 2T - 2 serial cable/connection
+WIC 4T - 4 serial cable/connection
+
+Advantage of Leased Line:
+- Easy configuration
+- High QoS
+- Bandwidth of connection is dedicated only to you and you alone
+- Permanent
+
+Disadvantage of Leased Line 
+- Expensive
+- Charged whether you use it or not
+- Limited to the speed of the link
+
+Leased Line (aka T or E carrer system)
+
+Nyquist Theorem 
+- Converts Analog Voice to Digital 64KBPS stream (Time Division Multiplexing)
+
+US Speeds
+DSO Digital Signal level 0 = 64kbps
+T1 = 24 x DS0 = 1.544Mbps
+T2 = 4 * T1
+T3 = 28 * T1
+T4 = 168 * T1
+
+Euro Speeds
+E1 = 30 x DS0 = 2Mbps 
+E2 = 4 * E1
+E3 = 17 * E1
+E4 = 70 * E1
+
+WAN Technologies
+1) PSTN Public Switch Telephone Network
+- Layer 2 protocols (HDLC High-Level Data Link Control, PPP)
+- PPP has advange because it has authentication
+- Circuit switched, dedicated path is setup for the duration of the call
+- Analog Asynchronous: Insert START/STOP bits in the same channel as the data. START bit prior to each byte of data. Uses STOP bit after each byte of data - lowers cost of equipment
+- NOT DIGITAL
+- Does NOT use clock to differentiate between bytes of data is to use START/STOP bits 
+ADVANTAGE: Simple, Availability, Cost
+DISADVANTAGE: Slow (33-56kbps), upgrade ISDN (64-128kbps)
+2) Leased Line
+- Serial / Point-to-Point link between 2 sites with dedicated bandwidth
+- Leased from Service Provider
+- Connects to a CSU DSU Channel service unit/ digital service unit 
+- Synchronized clocks for Data Transfer, before transfer they must align their clock
+- DCE Data Communication Equipment uses Internal Clocking (Server Provider provides this)
+- DTE Data Terminal Equipment uses External Clock (Customer side of WAN connection) -> dependent on DCE (Modem/DCE/CSU/DSU)
+- X.21 / V.35 cable
+ADVANTAGES: Simple, High QoS, Permanent Connection
+DISADVANTAGE: Cost, charged for circuit - if you don't use it, you are still charged, no ability to go above speed set (burst)
+3) Packet Switched
+- Serial / Point-to-Point link between 2 sites with shared bandwidth
+ADVANTAGE: Cost, potential to use above speed limit if other user is not using (burst)
+DISADVANTAGE: Share
+
+DTE DCE 
+- If connecting 2 routers both females, 1 of the routers must be the DCE. Cable will determine which side is the DCE and which side is DTE
+- 21, 35, 232, 449
+- DCE = Female
+- DTE = Male
+
+==Setup Serial Interface clock rate - DCE==
+**Default speed is T1
+**Bandwidth is especially important to OSPF and EIGRP because those protocols use bandwidth in their calculations to determine best route 
+R1(config)#int serial 0/0/0
+R1(config-if)#clock rate 64000 (64kbps) or R1(config-if)#bandwidth 64
+==Enable HDLC==
+R1(config)#int serial 1/0
+R1(config-if)#ip address 10.1.1.1 255.255.255.0
+R1(config-if)#encapsulation HDLC
+==Enable PPP/CHAP & Authentication==
+> Connect R1 and R2
+R1(config)#int serial 1/0
+R1(config-if)#ip address 10.1.1.1 255.255.255.0
+R1(config-if)#encapsulation ppp
+> Username R2 , Password cisco, pap
+R1(config-if)#end
+R1(config)#username R2 password cisco
+R1(config)#int s0/0
+R1(config-if)#ppp authentication pap 
+R1(config-if)#ppp pap sent-username R1 password cisco
+> R2 side
+R2(config)#username R1 password cisco
+R2(config)#int s0/0
+R2(config-if)#ppp authentication pap
+R2(config-if)#ppp pap sent-username R2 password cisco
+> Enable CHAP instead
+R2(config-if)#ppp authentication chap
+
+Types of HDLC
+[Flag][Address][Control][Data][FCS][Flag]
+1) HDLC High-Level Data Link Control [Industry Standard]
+- Missing Proprietary field, cannot run IPx and IPv4 OR IPv4 and IPv6 at same time
+2) Cisco HDLC High-Level Data Link Control [Cisco ONLY]
+- Includes [PROPRIETARY]
+- Can run both IPv4 and IPv6 at same time
+3) PPP [Industry Standard]
+- Includes [PROTOCOL]
+- Can run both IPv4 and IPv6 at same time
+- Layer 2
+- Multilink PPP - makes several links as a single link
+- Support multiple higher layer protocols, authentication (PAP, CHAP)
+- PAP - clear Text
+- CHAP - MD5 Hash, uses Router's name for authentication
+
+Frame Relay 
+- Replaced by MPLS Multiple Protocol Label Switching
+- Replaced X.25 (error checking at Layer 2) 
+- Frame Relay does not error check, relys on TCP
+- Shared Packet Switched environment where companies share the bandwidth
+- Sites are setup as SVC Switch Virtual Circuits (acts like a phone call - only brought up when required) or PVC Permanent Virtual Circuits (permanent connection from 1 site to another site)
+- Speeds up to 4Mbps
+- Switches are programmed to deal with DLCI Data Link Control Identifier. Once it receives a specific DLCI, the switch has been programmed to switch frames of XXX to YYY.
+***Think. Traffic are directed with DLCI
+- Routers learn each other's IP addresses using "Inverse ARP" - "I tell you my IP address without me requesting for it"
+ADVANTAGES: Cost, Bursting
+
+ATM Asynchronous Transfer Mode
+- Developed to carry voice, video and data across a single infrastructure
+- Higher speed than Frame Relay up to 155Mbps
+- ATM is good for voice because data is broken up - broken up data 53bytes is good reduces delay and jitter when voice has to be transmitted after data packets
+- Physical Media uses SONET/SDH, Optical Fibre
+- VPI/VCI Virtual Path/Channel Identifier is similar to DLCI 
+
+ADSl Asynchronous Digital Subscriber Line
+- Home setup - phone and data used together
+- Voice and data is split by frequency through the use of a splitter
+ADVANTAGE: Single analog cable into home (= less cost)	
+
+DSL 
+ADVANTAGE: Speed, simultaneous voice/data transmission, always on, backward compatible to analog phone
+DISADVANTAGE: limited availability, local phone company requirement, security risk (permanently on)
+1) ADSL Asymmetric Digital Subscriber Line
+- up/down speed is unequal
+- analog phone and internet at the same time
+2) SDSL Symmetric Digital Subscriber Line
+- up/down speed is EQUAL
+- no analog telephone calls (VoIP is useful here)
+
+_______________________________________________________
+
+==OSPF Simulations - Section572===
+Enable ppp on Serial 0/1 and enable the interface.
+
+Router2> en
+Router2# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router2(config)# interface serial 0/1
+Router2(config-if)# encapsulation ppp
+Router2(config-if)# no shut
+
+_______________________________________________________
+
+==OSPF Simulations - Section573===
+Serial 0/1:
+Set the clocking 64kbps on Router1 as it has the DCE side of the cable
+Set the bandwidth to 64kbps
+Set the encapsulation to ppp
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# int serial 0/1
+Router1(config-if)# clock rate 64000
+Router1(config-if)# bandwidth 64
+Router1(config-if)# encapsulation ppp
+
+_______________________________________________________
+
+==OSPF Simulations - Section574===
+Configure the following IP addresses and then enable HDLC on the router Serial interfaces 0/1
+Router 1:10.1.1.1/24
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# int serial 0/1
+Router1(config-if)# ip address 10.1.1.1 255.255.255.0
+Router1(config-if)# encapsulation hdlc
+
+_______________________________________________________
+
+==OSPF Simulations - Section575===
+You are connecting to Cisco router to another vender's router using serial 0/1
+Set the correct encapsulation to enable communication
+Configure the last IP address in the subnet 192.168.1.128/30
+
+**Since we are connecting Cisco's router to another vender, we want Industrial Standard protocol (ppp)
+192.168.1.128 /30
+128 64 32 16 0 0 0 0
+1 0 0 0 0 0 | 0 0 
+
+Router1> en
+Router1# conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+Router1(config)# int serial 0/1
+Router1(config-if)# encapsulation ppp
+Router1(config-if)# ip address 192.168.1.130 255.255.255.252
+
+_______________________________________________________
+
+==OSPF Simulations - Section576===
+Enter the command that displays the encapsulation on interface serial 0/1
+
+Router1> en
+Router1# show int serial 0/1
 
 
 
