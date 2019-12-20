@@ -1,1 +1,146 @@
+==Check Cabling DCE/DTE==
+R1#show controller serial 0/1/0
+==Set clock speed and bandwidth==
+**Note. Clock speed can only be done on DCE. Bandwidth is fine on noth DTE and DCE
+R1(config)#int s0/1/0
+R1(config-if)#clock speed 64000
+R1(config-if)#bandwidth 64
 
+Cisco Default Encapsulation = HDLC High-level Data Link Control
+**Point-to-point link/back-to-back , Encapsulation between two connected interfaces must match but can change on different connected links
+**Point-to-point/back-to-back link, DTE interfaces must have bandwidth, DCE interfaces must have both bandwidth and clock rate
+**MAC addresses are used on Ethernet Segment, but not used on HDLC (HDLC will reference which higher level protocol will be used - IPv4, IPv6)
+
+HDLC High-level Data Link Control (Industry Standard)
+[Flag][Address][Control][Data][FCS]
+- Layer 2 encapsulation
+- Leased Line
+
+Cisco HDLC High-level Data Link Control (Proprietary)
+[Flag][Address][Control][TYPE][Data][FCS]
+**By default, Cisco routers use HDLC for encapsulation
+- HDLC with a "Type" field
+- Allow multiple higher layer protocol to traverse at the same time (IPv4 and IPv6)
+R1(config)#int s1/0
+R1(config-if)#ip address 10.1.2.1 255.255.255.252
+R1(config-if)#encapsulation HDLC
+
+==Setup HDLC between 2 routers==
+**Notice, no configuration required because HDLC is enabled by default
+R1 s2/0 <-> s2/0 R2
+R1(config)#int s2/0
+R1(config-if)#10.1.2.1 255.255.255.252
+R1(config-if)#no shut
+R2(config)#int s2/0
+R2(config-if)#10.1.2.2 255.255.255.252
+R2(config-if)#no shut
+
+Protocols:
+Unicast = (0x0f)
+CDP = (0x2000)
+IPv4 = (0x0800)
+IPv6 = (0x86dd)
+
+PPP Advantages
+- Multiple Vendors 
+- Multiple Protocols simultaneously (IPv4, IPv6)
+- Authentication and multilink (present multiple interfaces (physical interfaces) as a single link to higher protocols (IPv4 would think it is a single link))
+
+PPP Authentication
+- Layer 2 similar to HDLC
+1) PAP Password Authentication Protocol (clear text)
+2) CHAP Challenge Handshake Authentication Protocol (MD5 Hash)
+
+PPP Protocols
+1) LCP Link Control Protocol
+- Manages features (authentications, multilink)
+2) NCP Network Control Protocol
+> Allow multiple higher layer protocols to traverse single link by using NCP
+> NCP for IPv4 = IPCP
+> NCP for CDP = CDPCP
+> NCP for IPv6 = IPv6CP
+- Therefore, to use both IPv4 and IPv6, PPP would need to use both IPCP and IPv6CP
+**Again PPP is Layer 2 Protocol, therefore in order to support Layer 3 IPv4 and IPv6, must use a single leased line with the help of IPCP and IPv6CP
+
+PPP 3 phases of link establishment
+1) Link establishment phase
+- PPP devices send LCP packets to configure and test the Data Link (negotiate which authentication method (PAP, CHAP), multilink?)
+2) Authentication Phase (OPTIONAL)
+- Device to choose PAP? CHAP? both?
+3) Network Layer Protocol Phase
+- Devices choose to use IPv4? IPv6? both?
+
+PPP PAP
+- Requires ONLY password
+- Cleartext Password
+- Remote peer is in control of authentication attempt (no protection from repeated attempts)
+- router's running config (local database) stores the usernames/passwords
+
+PPP CHAP Challenge Handshake Authentication Protocol
+**CCNA level, make sure hostnames are configured correctly
+- Requires username and password
+- MD5 Hash (hash data to 128bit value) - aka Trap door (you cant take hash value and come up with original value)
+
+PPP CHAP Process
+> R1 wants to authenticate with R2 (challenger)
+1) R2 sends CHAP challenge Packet to R1
+[CHAP challenge packet type identifier][identifier id][random #][nameOfSender]
+*R2 might be challenging multiple remote devices, therefore needs [identifier id] to keep track
+*[random #] stops playback attacks
+**2) R1 receives the challenge, enters passsword
+3) R1 will then hash the 3 fields together MD5# = [password + identifier id + random #]
+4) R1 sends the 3 fields back to R2, inserting MD5# where random# was
+5) R2 will compare the Z to its hash
+
+==TLDR==
+R1 <- R2
+**[id] is kept
+--1) [01][id][random][R2]--
+R1 -> R2
+--2) [02][id][MD5#][R1]--
+
+PPP Two authentication method (using both PAP and CHAP)
+- Only one of the authentication methods will ever be used but you can have the other on standby
+i.e. R1 (PAP, then CHAP) - R2 (CHAP), then CHAP will be used
+i.e. R1 (CHAP, then PAP) - R2 (CHAP), then CHAP will be used
+i.e. R1 (CHAP, then PAP) - R2 (PAP), then PAP will be used
+i.e. R1 (PAP, then CHAP) - R2 (PAP, then CHAP), then PAP will be used, CHAP will not be used
+
+***CHAP, routers use their hostname for authentication
+***CHAP, passwords must be the same for both sides
+*If username/password is changed after successful login, no error
+
+==PPP PAP username/password==
+R1 s2/0 <-> s2/0 R2
+> Create R1 local user
+R1(config)#username User2 password cisco
+> Create R2 local user
+R2(config)#username User1 password cisco
+> Config R1 encapsulation
+R1(config)#int s2/0
+R1(config-if)#encapsulation ppp
+R1(config-if)#ppp authentication pap
+R1(config-if)#ppp pap sent-username User1 password cisco 
+> Config R2 encapsulation
+R2(config)#int s2/0
+R2(config-if)#encapsulation ppp
+R2(config-if)#ppp authentication pap
+R2(config-if)#ppp pap sent-username User2 password cisco 
+
+==PPP CHAP username/password==
+> Create R1 local user
+R1(config)#username R2 password cisco
+> Config R1 encapsulation
+R1(config)#int s2/0
+R1(config-if)#encapsulation ppp
+R1(config-if)#ppp authentication chap
+> Create R2 local user
+R2(config)#username R1 password cisco
+> Config R2 encapsulation
+R2(config)#int s2/0
+R2(config-if)#encapsulation ppp
+R2(config-if)#ppp authentication chap
+
+
+
+ 	
