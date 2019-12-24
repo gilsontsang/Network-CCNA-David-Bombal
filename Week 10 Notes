@@ -141,6 +141,189 @@ R2(config)#int s2/0
 R2(config-if)#encapsulation ppp
 R2(config-if)#ppp authentication chap
 
+Multilink PPP
+- Makes 2 or more serial links appear as a single physical link
+- If one of the links go down, multilink will still be up. If all links go down, then multilink goes down
+- Accomplished via "Virtual Multilink Interface" by fragmenting packets across both links
+ex. PC1 -> R1 s0/0 & s0/1 R2 -> PC2, R1 will fragment a packet onto the 2 links, then R2 will join them back again to continue transmission to PC2 - PC2 would not know fragment took place
+- Multilink used to be used on single physical links, because it provides fragmentation
+- Wireshark will show errors about fragments (if 2 or more links), but it will fail checksum. However, when all links are disabled down to 1 link, then there will be no error, because on a single link, no fragmentation will take place
+- Fragmentation/Reassemble is based on "Sequence number" in the Multilink Protocol
+
+==Configure PPP Multilink==
+> R1 s2/1 10.1.4.1 <-> s2/1 10.1.4.2 R2
+> R1 s2/0 10.1.2.1 <-> s2/0 10.1.2.2 R2
+**Note. Neighbor relationship must be established first, i.e. EIGRP have to be enable
+R1(config)#interface multilink 1 (randomNumber)
+R1(config-if)#encapsulation ppp
+R1(config-if)#ppp multilink
+R1(config-if)#ip address 10.1.5.1 255.255.255.252
+R1(config-if)#ppp multilink group 1
+R1(config-if)#int s2/0
+R1(config-if)#ppp multilink group 1
+R1(config-if)#int s2/1
+R1(config-if)#ppp multilink group 1
+R2(config)#interface multilink 1 (randomNumber)
+R2(config-if)#encapsulation ppp
+R2(config-if)#ppp multilink
+R2(config-if)#ip address 10.1.5.2 255.255.255.252
+R2(config-if)#ppp multilink group 1
+R2(config-if)#int s2/0
+R2(config-if)#ppp multilink group 1
+R2(config-if)#int s2/1
+R2(config-if)#ppp multilink group 1
+
+PPPoE Point-to-Point over Ethernet
+**Does not encrypt in PPPoE Tunnel (cleartext)
+> PPPoE Client <-(DSLAM Digital Subscriber Line Multiplexer & PPP Tunnel)-> PPPoE Access Server
+
+==Configure PPPoE Client==
+> PPPoE client g0/0 <-> g0/0 PPPoE server
+> Assume PPPoE Server is setup and ready for PPPoE Client
+**int dialer 1, even when interface is shut down, it will still show as up/up
+Client(config)#int dialer 1 [spoof an interface as up, even though it is down - keeps routing protocols]
+Client(config-if)#ip address negotiated [Server will allocate IP address to Client via PPP]
+Client(config-if)#encapsulation ppp
+Client(config-if)#mtu 1492 [Maximum transmission unit - often 1500, we set it lower due to addition PPP headers]
+Client(config-if)#ppp chap hostname david
+Client(config-if)#ppp chap password cisco
+Client(config-if)#dialer pool 2
+> Configure g0/0
+Client(config-if)#int g0/0
+Client(config-if)#no ip address
+Client(config-if)#pppoe-client dial-pool-number 2
+Client(config-if)#pppoe enable
+Client(config-if)#exit
+Client(config)#ip route 0.0.0.0 0.0.0.0 dialer 1
+Client(config)#ip domain-lookup
+Client(config)#ip name-server 8.8.8.8
+==Show PPPoE Session==
+Client#show pppoe session
+==Show dialer 1==
+Client#show int dialer 1
+==Show virtual interface (from dialer 1)==
+> Notice, the configuration is from Dialer 1, we didn't configure this
+**Virtual interfaces will go down when dialer goes down
+Client#show int virtual-access 2 configuration
+Client#show run int dialer 1
+Client#show run int virtual-access 2
+
+IP SLAs Service Level Agreement
+- SP provides a certain level of agreement (i.e. ICMP traffic/Voice traffic)
+> Cisco routers can generate/mimic voice traffic to test SLA
+
+IP SLAs Cisco Router
+**IP SLA cannot be changed in Cisco routers, they must be deleted and readded
+
+==Setup Tracking - IP SLA==
+> R1 g0/1 10.1.2.1 <-> R2 <-> f0/0 10.1.6.1 R6
+> R1 g0/2 10.1.3.1 <-> R2 <-> f0/0 10.1.6.1 R6
+> Setup ping test
+> When it goes above threshold of 50, interface goes down
+R1(config)#ip sla 1
+R1(config-ip-sla)#icmp-echo 10.1.6.2 source-ip 10.1.1.1
+R1(config-ip-sla-echo)#frequency 5
+R1(config-ip-sla-echo)#threshold 50
+R1(config-ip-sla-echo)#exit
+R1(config)#ip sla schedule 1 life forever start-time now
+> Create tracking object
+R1(config)#track 1 ip sla 1
+R1(config-track)#track 1 ip sla 1
+> Rechecks every 5 seconds for threshold to determine up/down
+R1(config-track)#delay down 5 up 5
+R1(config-track)#exit
+R1(config)#ip route 10.1.6.0 255.255.255.0 10.1.2.2 track 1 [Using SLA1, route will be removed when we are below SLA threshold]
+R1(config)#ip route 10.1.6.0 255.255.255.0 10.1.3.2 2 [Setting administrative distance of 2, route will be used when we exceeded SLA threshold]
+==Show SLA==
+> ms should be less than 50ms, because we set threshold to be 50
+> If yes, then will use track 1, otherwise will use 10.1.3.2
+R1#show track 1
+R1#show ip sla summary
+
+BGP Border Gateway Protocol
+**CCNA needs to know - eBGP (External Border Gateway Protocol) configuration between [A] Enterprise Server and [B]ISP Server using single internet link
+**CCNA: 3 types of eBGP connections
+1) Dual Homed connection - 2 connections between [A] and [B]
+2) Single Multihomed connection - 1 connection [A] to [B]1 and 1 connection [A] to [B]2
+3) Dual Multihomed connection - 2 connections [A] to [B]1 and 2 connections [A] to [B]2
+
+BGP Border Gateway Protocols vs IGP Interior Gateway Protocols
+> IGP (within AS) = OSPF, EIGRP
+> BGP (between AS) = 
+- BGP is the only protocol used on the internet
+- BGP runs the internet
+- BGP chooses best routes based on metric/criteria 
+- BGP needs to converge (when there is a change - add/remove/change/replace)
+- BGP routing tables are huge and increasing (all routes on the internet) 
+**BGP relationship is not automatic, manual configuration is required on both routers. BGP runs on Layer 7, therefore not on an interface. Whereas IGP such as EIGRP, IGP runs on Layer 3/4 and therefore are configured automatically
+- BGP (admin distance) = 200
+- OSPF (admin distance) = 110
+
+iBGP vs eBGP
+- iBGP - inside same AS but still routers on the internet
+- iBGP - advertise itself with Loopack
+- eBGP - different AS
+- eBGP - advertise itself with the physical connected interface
+
+BGP Neighbor states
+1) Idle
+- No connection to neighbor (neighbor shutdown)
+2) Connect
+- TCP connection has been attempted, but hasn't been completed
+3) Active (Not working!)
+- TCP connection has been completed, no BGP messages have been sent
+4) Opensent 
+- TCP connection exists, router is trying to create connection to neighboring device
+5) Openconfirm
+- TCP connection exists, local router had receive a message back from neighboring router
+6) Established
+- Both router and neighboring router has agreed to form relationship. Now they can exchange messages with each other
+
+==Show BGP Routes==
+PC>#telnet route-views.routeviews.org
+R1>sh ip bgp sum
+R1>sh ip route sum
+> # of IP routes = Networks + Subnet
+> 197993 Networks, 458350 Subnets = 656,343 routes
+*Changes all the time
+
+==Configure iBGP==
+**BGP relationship is not automatic, manual configuration is required on both routers
+> R1
+**Just because BGP is setup, does not mean routes are automatically advertised, it must be redistribute it or manually advertise
+**Router ID is its loopback address (automatically)
+*Use loopbacks for Router IP Address
+*If "State" is blank, it is running (misleading)
+*Same AS
+R1 17.17.17.1/32 loopback <-> R2 17.17.17.2/32 loopback
+R1(config)#router bgp 17
+R1(config-router)#neighbor 17.17.17.2 remote-as 17
+R2(config-router)#neighbor 17.17.17.2 update-source loopback 0
+R1(config-router)#router ospf 1
+R1(config-router)#network 0.0.0.0 255.255.255.255 area 0
+> R2, does not want to advertise itself publicly
+R2(config)#router ospf 1
+R2(config-router)#network 17.0.0.0 0.255.255.255 area 0
+R2(config-router)#router bgp 17
+R2(config-router)#neighbor 17.17.17.1 remote-as 17
+R2(config-router)#neighbor 17.17.17.1 update-source loopback 0
+==Advertise routes in BGP (redistribute - basically... advertising all of your routes)==
+R1(config-router)#network 17.1.1.0 mask 255.255.255.0
+R2(config-router)#network 17.17.17.0 mask 255.255.255.255 
+R2(config-router)#network 17.17.17.2 mask 255.255.255.255 
+
+==Configure eBGP==
+> R1 <-> R2 s2/0 8.1.1.1/30 (AS17) <-> R3 8.1.1.2/30 s2/0 (AS8)
+> R2
+R2(config)#router bgp 17
+R2(config-router)#neighbor 8.1.1.2 remote-as 8
+**R2 needs to advertise this network, otherwise R1 will not know how to get to R3
+R2(config-router)#network 8.1.1.0 mask 255.255.255.252
+> R3
+R3(config)#router bgp 8
+R3(config-router)#neighbor 8.1.1.1 remote-as 17
+R3(config-router)#network 8.1.1.0 mask 255.255.255.252 [Optional]
+
 
 
  	
