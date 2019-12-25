@@ -295,13 +295,16 @@ R1>sh ip route sum
 *Use loopbacks for Router IP Address
 *If "State" is blank, it is running (misleading)
 *Same AS
+*Even thought, same AS, still use remote-as
 R1 17.17.17.1/32 loopback <-> R2 17.17.17.2/32 loopback
 R1(config)#router bgp 17
 R1(config-router)#neighbor 17.17.17.2 remote-as 17
-R2(config-router)#neighbor 17.17.17.2 update-source loopback 0
+R1(config-router)#neighbor 17.17.17.2 update-source loopback 0 [when R1 wants to send to 17.17.17.2, it uses its loopback 0 as the source - this way, 17.17.17.2 expects R1's loopback address to send traffic to 17.17.17.2 and not a random interface] 
+> OSPF is used for internal routers, they must be enabled
 R1(config-router)#router ospf 1
 R1(config-router)#network 0.0.0.0 255.255.255.255 area 0
-> R2, does not want to advertise itself publicly
+> If want to advertise a specific ospf network (i.e. 8.1.2.1), then... R1(config-router)#network 8.1.2.1 0.0.0.0 area 0
+> R2, does not want to advertise itself to the internet, hence only 17.0.0.0 was used
 R2(config)#router ospf 1
 R2(config-router)#network 17.0.0.0 0.255.255.255 area 0
 R2(config-router)#router bgp 17
@@ -313,6 +316,7 @@ R2(config-router)#network 17.17.17.0 mask 255.255.255.255
 R2(config-router)#network 17.17.17.2 mask 255.255.255.255 
 
 ==Configure eBGP==
+**Notice, no "update-source" is needed on eBGP
 > R1 <-> R2 s2/0 8.1.1.1/30 (AS17) <-> R3 8.1.1.2/30 s2/0 (AS8)
 > R2
 R2(config)#router bgp 17
@@ -324,6 +328,198 @@ R3(config)#router bgp 8
 R3(config-router)#neighbor 8.1.1.1 remote-as 17
 R3(config-router)#network 8.1.1.0 mask 255.255.255.252 [Optional]
 
+==Force 1-BGP path over another==
+> Instead of going x.x.x.x, we want it go to y.y.y.y by increasing weight to 1000 - default weight is 0
+R1(config)#router bgp 17
+R1(config-router)#neighbor x.x.x.x weight 1000 
+R1(config-router)#exit
+R1#clear ip bgp x.x.x.x
+> Confirm weight has changed
+R1#show ip bgp
+R1#show ip bgp neighbor
+R1#show run | section bgp
+R1#show ip proto
+R1#show tcp brief
+
+***BGP - TLDR***
+*Internal BGP, not on CCNA exam
+1) Both Internal and External BGP
+- Uses remote-as "neighbor y.y.y.y remote-as 17"
+- Advertise its networks in exact subnet mask
+- When selecting router bgp XX, XX refers to its own bgp 
+2) Internal BGP - in addition to (1)
+- uses OSPF/routing protocols interfaces connecting 2 internal routers
+- uses Loopback as its source "neighbor x.x.x.x update-source loopback 0"
+3) Administrative Distances
+eBGP - 20
+iBGP - 200
+4) eBGP, iBGP
+- eBGP runs outside of AS (different AS #)
+- iBGP runs within AS (same AS #)
+5) Quick ex. R3 15.1.1.1 /24 <-> R4 15.1.1.2 /24
+R3(config)# router bgp 65002
+R3(config-router)#neighbor 15.1.1.2 remote-as 65002
+R3(config-router)#network 15.1.1.0 mask 255.255.255.0
+R4(config)# router bgp 65002
+R4(config-router)#neighbor 15.1.1.1 remote-as 65002
+
+MPLS (1) Multiprotocol (2) Label (3) Switching
+**Troubleshooting not on CCNA
+- (1) Multiprotocol means support IPv4, IPv6, Layer 2
+- (3) Switching from one interface/protocol to another on a router using Labels (2)
+- 2 mains uses: Layer 3 VPNs and Layer 2 VPNs
+- In Layer 3 used to seperate customer traffic by IP, similar to VLAN seperates traffic in Layer 2
+
+~ASICs Application Specific Integrated Circuits
+
+MPLS Layer3 VPN ex.
+> EdgeDevice1 <-> R1 <-> R2 <-> R3 <-> R4 <-> EdgeDevice2
+- Traditionally, all ED1, ED2, R1-4 would need to know how to send/receive traffic if we were to send from ED1 to ED2. With MPLS, R2-3 does not need to know how to route ED1 to ED2, instead R1 would put a "Label" on the traffic with information to send to R4, R4 will know how to send it to ED2
+
+MPLS Terminology
+- LSR Label Switch Router
+> EdgeDevice1 -> R1 -> R2 -> R3 -> R4 -> EdgeDevice2
+R2, R3 = Provider Routers
+R1, R4 = Provider Edge Routers (Connected to Provider and to Customers)
+R1, R4 = Intermediate LSR
+ED1, ED2 = Customer Edge Routers (VRF Virtual, Routing, and Forwarding - indicates Customer Virtual Network)
+R1 = Ingress LSR a.k.a Edge LSR (Inserts a "Label" between Layer 2 Header and Layer 3 Header)
+R4 = Egress LSR
+
+MPLS LSP Label Switch Path
+> EdgeDevice1 -> R1 -> R2 -> R3 -> R4 -> EdgeDevice2
+1) ED1 sends packet to R1
+2) R1 inserts a "Label" (i.e. 20) between Layer 2 header and Layer 3 header (aka Layer 2.5 Header) into the Egress Network (Outer Label)
+3) R1 sends to R2
+4) R2 swaps the Label to 21 (not sequential), then forwards it to R3
+5) R3 swaps the Label to 22 (not sequential), then forwards it to R4
+6) R4 strips the "Label" (Inner Label), then forwards to ED2 without a label in the Customer Network
+**R1 -> R4, sends a label known as "Next Hop Label"
+
+MPLS Traffic Engineering 
+- OSPF does not load balance
+- EIGRP does some unequal cost load balancing
+*MPLS provides a lot of flexibility in load share traffic across multiple paths based on link utilization - reroute traffic based on 1) Load 2) Traffic Type
+i.e. VoIP will take path 1, FTP will take path 2
+
+MPLS Labels
+- 32bit header inserted between Layer 2 and 3 Header
+[20bit Label][3bit Experimental Field (QoS)][1bit Bottom-of-Stack indicator (Outer/Inner Label)][3bit Time-to-live (Stop Loops)]
+
+OSPFv3
+- 128bit IPv6 Addresses Compatible
+- OSPFv3 vs OSPFv2 are independent of each other
+- 
+
+OSPFv3 vs OSPFv2 similarities
+**OSPF does not require Area 0, if you only have 1 other area (i.e. Area 1)
+- Link-state (LSA Link State Advertisements) routing protocols, same design concepts (Backbone area, Area border router, AS border routers, 32-bit router ID
+- IP Protocol # 89
+
+OSPFv3 vs OSPFv2 differences
+- Separate databases, Different Addresses, they do not communicate with each other
+> Activation
+- OSPFv2 - use Network Command on interfaces
+- OSPFv3 - go on interface and enable OSPF
+> IP Address
+- OSPFv3 - Uses IPv6 link local addresses for neighbor relationships
+- OSPFv2 - Uses IPv4 interface IP Addresses for neighbor relationships 
+> Advertisements
+- OSPFv3 - Uses FF02::5 to advertise info to all OSPF routers, and FF002::6 to DR and BDR
+- OSPFv2 - 224.0.0.5 and 224.0.0.6
+
+==Show OSPFv3==
+R1#show ipv6 ospf database
+R1#show ipv6 ospf int
+R1#show ipv6 ospf neighbor
+R1#show ipv6 protocols
+R1#show ipv6 router
+
+==Ping IPv6==
+**Both works
+R1#ping ipv6 2001:FACE:1::1
+R1#ping 2001:FACE:1::1
+
+==Configure OSPFv3==
+[Area 1: R1 G0/0 <-> G0/0 R2]<->[Area 0: R2 G0/1 <-> G0/0 R3]<->[Area 2: R3 G0/1 <-> R4 G0/0]
+> R1 Initial Setup
+R1(config)#int loop 0
+R1(config-if)#ipv6 address 2001:FACE:1::1/64
+R1(config-if)#int g0/0
+R1(config-if)#ipv6 address 2001:1::1/64
+R1(config-if)#no shut
+R1(config-if)#end
+> Enable IPv6 routing
+R1(config)#ipv6 unicast-routing
+R1(config)#ipv6 router ospf 1 (**Remember, this is arbitrary, other routers do not need to use the same number!)
+R1(config-rtr)#router-id 1.1.1.1
+R1(config-rtr)#end
+> Go into each individual interface to enable OSPFv3
+R1(config)#int loop 0
+R1(config-if)#ipv6 ospf 1 area 1
+R1(config-if)#int g0/0
+R1(config-if)#ipv6 ospf 1 area 1
+> R2 Initial Setup
+R2(config)#int loop 0
+R2(config-if)#ipv6 address 2001:FACE:2::1/64
+R2(config-if)#int g0/0
+R2(config-if)#ipv6 address 2001:1::2/64
+R2(config-if)#no shut
+R2(config-if)#int g0/1
+R2(config-if)#ipv6 address 2001:2::2/64
+R2(config-if)#no shut
+R2(config-if)#end
+> Enable IPv6 routing
+R2(config)#ipv6 unicast-routing
+R2(config)#ipv6 router ospf 1
+R2(config-rtr)#router-id 2.2.2.2
+R2(config-rtr)#end
+> Go into each individual interface to enable OSPFv3
+R2(config)#int loop 0
+R2(config-if)#ipv6 ospf 1 area 1
+R2(config-if)#int g0/0
+R2(config-if)#ipv6 ospf 1 area 1
+R2(config-if)#int g0/1
+R2(config-if)#ipv6 ospf 1 area 0
+> R3
+R3(config)#int loop 0
+R3(config-if)#ipv6 address 2001:FACE:3::1
+R3(config-if)#int g0/0
+R3(config-if)#2001:2::3/64
+R3(config-if)#no shut
+R3(config-if)#int g0/1
+R3(config-if)#2001:3::1/64
+R3(config-if)#no shut
+R3(config-if)#end
+R3(config)#ipv6 unicast-routing
+R3(config-rtr)#ipv6 routing ospf 1
+R3(config-rtr)#route-id 3.3.3.3
+R3(config-rtr)#int loop 0
+R3(config-if)#ipv6 ospf 1 area 2
+R3(config-if)#int g0/0
+R3(config-if)#ipv6 ospf 1 area 0
+R3(config-if)#int g0/0
+R3(config-if)#ipv6 ospf 1 area 2
+> R4
+R4(config)#int loop 0
+R4(config-if)#ipv6 address 2001:FACE:4::1/64
+R4(config-if)#int g0/0
+R4(config-if)#ipv6 address 2001:3::2/64
+R4(config-if)#no shut
+R4(config-if)#end
+R4(config)#ipv6 unicast-routing
+R4(config-rtr)#ipv6 routing ospf 1
+R4(config-rtr)#router-id 4.4.4.4
+R4(config-rtr)#int loop 0
+R4(config-if)#ipv6 ospf 1 area 2
+R4(config-if)#int g0/0
+R4(config-if)#ipv6 ospf 1 area 2
 
 
- 	
+
+
+
+
+
+
+
