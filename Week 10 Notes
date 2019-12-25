@@ -428,6 +428,22 @@ OSPFv3 vs OSPFv2 differences
 - OSPFv3 - Uses FF02::5 to advertise info to all OSPF routers, and FF002::6 to DR and BDR
 - OSPFv2 - 224.0.0.5 and 224.0.0.6
 
+**Make sure OSPF/EIGRP interfaces are not set to "Passive Interface"
+**Passive Interface is useful for not forming relationships with external networks or        users
+==Turn on Passive Interface globally (interface will not form neighbor relationships and send updates)==
+R1(config)#ipv6 router ospf 1
+R1(config-rtr)#passive-interface default
+==Turn on Passive Interface individually==
+R1(config-rtr)#passive-interface g0/0
+R1(config-rtr)#passive-interface g0/1
+> Undo above
+R1(config-rtr)#no passive-interface g0/0
+R1(config-rtr)#no passive-interface g0/1
+==Similiarly on EIGRP==
+R1(config)#ipv6 router eigrp 1
+R1(config-rtr)#no passive-interface g0/0
+R1(config-rtr)#no passive-interface g0/1
+
 ==Show OSPFv3==
 R1#show ipv6 ospf database
 R1#show ipv6 ospf int
@@ -515,7 +531,71 @@ R4(config-if)#ipv6 ospf 1 area 2
 R4(config-if)#int g0/0
 R4(config-if)#ipv6 ospf 1 area 2
 
+==Configure OSPFv3 without IP address (uses link-local)==
+> R1 g0/0 <-> g0/0 R2
+> R1
+R1(config)#ipv6 unicast-routing
+R1(config)#ipv6 router ospf 1
+R1(config-rtr)#router-id 1.1.1.1
+R1(config-rtr)#end
+R1(config)#int g0/0
+R1(config-if)#ipv6 enable
+R1(config-if)#ipv6 ospf 1 area 0
+R1(config-if)#no shut
+> R2
+R2(config)#ipv6 unicast-routing
+R2(config)#ipv6 router ospf 1
+R2(config-rtr)#router-id 2.2.2.2
+R2(config-rtr)#end
+R2(config)#int g0/0
+R2(config-if)#ipv6 enable
+R2(config-if)#ipv6 ospf 1 area 0
+R2(config-if)#no shut
+[Optional] Proof that it works (R1 able to ping R2)
+> R1
+R1(config)#int loop 0
+R1(config-if)#ipv6 address 2001:FACE:1::1/128
+R1(config-if)#ipv6 ospf 1 area 0
+> R2
+R2(config)#int loop 0
+R2(config-if)#ipv6 address 2001:FACE:2::2/128
+R2(config-if)#ipv6 ospf 1 area 0
 
+IPv6 EIGRP
+- Advanced Distance Vector routing protocol (Link State)
+- [Diff] To form neighbor relationships, uses Link-local addresses, no longer uses neighbor's IP address
+- [Diff] To enable EIGRP on an interface, you must now specify it on the interface. Network command no longer used
+- [Same] Use "Dual Algorithm" for best path to destination network
+- [Same] Use RTP Reliable Transport Protocol to send updates/acknowledgements
+- [Same] Use Multicast FF02::A (10) == 224.0.0.10 for updates - No longer Broadcast
+- [Same] Support both equal and unequal cost load balancing - topology and neighbor tables are both created
+
+==Configure IPv6 EIGRP==
+***AS# must match
+> Do this for each router
+> Once configured, setup IP addresses and they will be able to ping each other
+R1(config)#ipv6 unicast-routing
+R1(config)#ipv6 router eigrp 1 [AS]
+R1(config-rtr)#eigrip router-id 1.1.1.1
+R1(config-rtr)#no shut
+R1(config-rtr)#int g0/0
+R1(config-rtr)#ipv6 eigrp 1
+R1(config-rtr)#int loop 0
+R1(config-rtr)#ipv6 eigrp 1
+R2(config)#ipv6 unicast-routing
+R2(config)#ipv6 router eigrp 1 [AS]
+R2(config-rtr)#eigrip router-id 2.2.2.2
+R2(config-rtr)#no shut
+R2(config-rtr)#int g0/0
+R2(config-rtr)#ipv6 eigrp 1
+R2(config-rtr)#int loop 0
+R2(config-rtr)#ipv6 eigrp 1
+
+==Show commands==
+> Check eigrp is enabled on interfaces
+R1#show ipv6 eigrp int
+R1#show ipv6 eigrp neigh
+R1#show ipv6 route eigrp
 
 
 
