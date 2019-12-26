@@ -1,0 +1,157 @@
+IPv6 ACL Access Control List
+- 1st line of defence... should also have IPS Intrusion Prevention System, Firewall, Protocol analyzers
+- Permit or deny traffic in your network
+
+**IPv6 CCNA focus
+- Use IPv6 to filter IPv6 packets received & transmitted via Routers
+
+IPv6 IPv4 ACL similarities
+> ACL can match on 
+- Source/Destination IP Address
+- Individual host address
+- Subnets in both inbound/outbound
+- Protocols (TCP, UDP, Port #)
+- ICMP message
+*Both uses implicit deny/deny all statement at the end
+*Cannot copy IPv4 ACLs to IPv6 ACLs
+
+IPv6 IPv4 ACL differences
+1)
+- IPv6 ACL and IPv4 ACL are independent of each other (i.e. the same source can be allowed in IPv6A ACL, but denied on IPv4 ACL)
+2)
+- IPv6 ACL has "Implicit Permit", IPv4 ACL does not, only has "Implicit Deny"/"Deny any any" (which IPv6 also have)
+3)
+**IPv4 ACL uses NAME/NUMBER (recall Standard (filter Source ONLY) = 1-99, Extended (filter Source and Destination) = 100-199)
+**IPv6 ACL only use NAMES (Standard and Extended are still used, but using WORDS instead)
+4)
+- IPv4 match on Precedence, ToS Type of Service, TTL, fragments
+- IPv6 match on Flow label, DSCP, Extentions and option header values
+5) 
+- IPv4 ACL match on /22,/23,/24,/25
+- IPv6 ACL match on a hex-digit boundary /48,/52,/56,/64
+
+~ICMPv6
+- Remember, ARP was used to determine MAC address of neighbor, ARP no longer used in IPv6 
+**ARP (IPv4) == ICMPv6 (IPv6), you dont want to block ICMPv6 as it provides basic IPv6 functionality (Neighbor Discovery Protocol NDP & Path MTU Discovery)
+
+==Show ACL==
+R2#show ipv6 access-list
+
+==Configure ACL==
+> Permit - any traffic with 2001:1::/64
+R2(config)#ipv6 access-list acl1
+R2(config-ipv6-acl)#permit 2001:1::/64 any
+> Deny - all traffic except for acl1
+R2(config-ipv6-acl)#int g0/0
+R2(config-if)#ipv6 traffic-filter acl1 in [inbound]
+==Extended ACL==
+> Permit - ping (ICMP) with 2001:1::/64
+R2(config)#ipv6 access-list acl2
+R2(config-ipv6-acl)#permit icmp 2001:1::/64 any
+> Permit - telnet (TCP) any any
+R2(config-ipv6-acl)#permit tcp any any
+
+==Enable Telnet==
+R3(config)#line vty 0 4
+R3(config-line)#transport input all
+R3(config-line)#password cisco
+R3(config-line)#exit
+R3(config)#enable password cisco
+
+VPN Virtual Private Network
+- Low cost (expensive lease lines previously), high bandwidth
+- Send traffic securely (private information - encrypted) over an insecure medium (internet)
+
+Cleartext Protocols (FTP, Telnet, SMTP, HTTP, SNMPv1)
+
+Cryptography Algorithms
+1) Cipher 
+- Encryption algorithm (ex. Symmetric - DES, 3DES, AES, Blowfish)
+- Put cleartext data into non-readable forms
+2) Symmetric Algorithm
+- Same key used for encryption and decryption (ex. Secret Key)
+3) Asymmetric Algorithm
+- Diff key used for encryption and decryption (ex. Public Key)
+
+4 goals of protecting data
+1) Confidentiality - no one should be read the data
+2) Integrity - data has traversed unchanged between 2 parties
+3) Origin Authentication - protected data could only have originated from sender
+4) Antireplay protection - verify that each packet is unique and not duplicated
+
+Caesar algorithm
+ex. MJQQT -> HELLO
+Algorithm = move data to the rigth
+Key = 5
+> Hacker would ned to know algorithm and key
+
+Keylength/Keyspace
+- Total # of all combinations
+- The larger this keylength/keyspace is, harder it is to crack
+
+---(1)--- Data confidentiality
+3 Types of Symmetric Algorithm
+**Algorithms not on CCNA, but good for understanding for VPN
+1) DES
+- 1975 Created by IBM
+- Do not use in today's environment
+- 1 set of key
+- Fixed key length = 56bits (2^56 combinations)
+- Suspectible to Brute Force > 1998 decrypted in 56hours, 1999 decrypted in over 22hours
+2) 3DES 
+- 3 sets of keys
+1) Encrypt with Key 1
+2) Decrypt with Key 2
+3) Encrypt with Key 3
+- If Key1 = Key3 -> 112bit key length
+- If Key1 =/= Key3 -> 168bit key length
+3) AES
+- Recommended for today's environment
+- Good for bulk encryption
+
+Asymmetric algorithm
+**Algorithms not on CCNA, but good for understanding for VPN
+- Uses different key to decrypt and encrypt
+Steps:
+1) Router generate private key (cannot be generated from public key) - not shared
+2) Router generate public key (can only be generated from private key) - shared
+-> Private key can only be decrypted by your public key
+<- Public key can only be decrypted by your private key
+TLDR: If A wants to send something to B, then A will encrypt the data with B's public key, then B will use their private key to decrypt what they got from A. Similarly, if B wants to send something to A, then B will encrypt the data with A's public key, then A will use their private key to decrypt what they got from B.
+
+*Diffie Hellman DH
+- Key Exchange - AES, 3DES, DES securely, over insecure medium (internet)
+- Public Key Algorithm
+3 set of keys (longer key length, the more secure, downside, more processing power is required)
+1) DH1 - 768bits
+2) DH2 - 1024bits
+3) DH5 - 1536bits
+
+---(2)--- Data Integrity
+- Ensure data has not been tampered with by using Hash, trap-door, digest (1 way algorithm - cannot be reversed)
+- Converts to fix length hash MD5 - 128bit or SHA Secured Hash Algorithm (more secure than MD5) SHA-3 > SHA-2 > SHA-1 > MD5
+**HMAC Hash Message Authentication Code
+HMAC Hash Message Authentication Code Procedure
+1) Host A sends secure msg (X) to Host B with a Hash Value (Y) to compare
+2) Host B can confirm there was no tampering of data because B can hash (X) and make sure (Hash X) == (Y)
+3) To prevent a hacker from tampering with Y because Hacker could change both (X) and (Y) in the message, Host A and Host B knows a secure HMAC
+4) Therefore, msg (X) + (HMAC) == Z -> Hash would be the final Hash that Host B needs to compare. Therefore, Host A sends (X) and (Z), and Host B can confirm (Z) by hashing (X) and (HMAC)
+
+---(3)--- Data Authentication
+- Ensure data is from claimed sender (session hijacking)
+1) Pre shared Key (PSK)
+- Secret key value entered into each peer manually and is used to authenticate peer
+2) RSA Signatures (PSK with a private key)
+- Encrypt the hash with a private key
+- Similar to (1) Pre shared Key, but taking it 1 step further with Host A encrypting the hash with his/her Digital Signature with Host A's private key, then Host B has Host A's public key, decrypts the Digital Signature, and then Host B can compare Host A's hash
+
+Certificate of Authority
+- But what stops below?
+Host A -> Host A Public Key -> Host B
+Host A -> Host A Public Key -> Hacker -> Fake Host A Public Key -> Host B
+Answer: Certificate of Authority - trusted 3rd party (a.k.a PKI Public Key Infrastructure)
+
+PKI Public Key Infrastructure - trust
+-> Host A trust PKI (X), Host B trusts (X), therefore Host B trusts Host A
+<- Host B trust PKI (X), Host A trusts (X), therefore Host B trusts Host A
+<-> Host A trust Host B
