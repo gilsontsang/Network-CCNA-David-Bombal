@@ -155,3 +155,135 @@ PKI Public Key Infrastructure - trust
 -> Host A trust PKI (X), Host B trusts (X), therefore Host B trusts Host A
 <- Host B trust PKI (X), Host A trusts (X), therefore Host B trusts Host A
 <-> Host A trust Host B
+
+IPSec IP Security
+- Network layer protocol (IP Sec Protocols) - Layer 4
+- Protects and authenticates IP packets
+
+IPSec Protocols
+1) Internet Key Exchange (IKE)
+- Framework for negotiating security parameters and establishing authenticated keys
+2) Authentication Header (AH)
+- No Encryption
+- Authentication 
+- Integrity
+3) Encapsulating Security Payload (ESP)
+- Encryption
+- Authentication 
+- Integrity
+
+IPSec Modes
+1) Transport Mode
+- Original IP header of packet is used to transport packet
+2) Tunnel Mode
+- Original IP header of packet not used to transport packet, a new IP header is tagged in front (using  its peer devices' IP Address)
+
+**Common: ESP with Tunnel Mode
+ex. PC1 (IP: X) <-> R1 (IP: A) <-> Internet <-> R2 (IP: B) <-> PC2 (IP: Y) 
+1) [SA: X][DA: Y]
+2) [ESP][SA: A][SA: B]
+Original IP header is not used
+
+IPSec Framework - IKE Internet Key Exchange
+1) IPSec Protocol 
+[ESP] or [AH] or [ESP + AH]
+2) IPSec Mode
+[Transport Mode] or [Tunnel Mode]
+3) Encryption (Algorithm)
+[DES] or [3DES] or [AES]
+4) Authentication (Integrity)
+[MD5] or [SHA]
+5) DH (Key Length)
+[DH1] or [DH2] or [DH5]
+
+VPN Types
+*Benefit... no leased line. Therefore, Cost Savings, Security, Scalability
+1) Site to Site VPN
+2) Remote Access IPSec VPN (Shirley)
+- PC Software required
+3) Remote Access SSL VPN 
+- No PC Software required
+**CCNA - not required to know how to setup IPSec VPN
+
+GRE Generic Routing Encapsulation (Tunneling)
+> PC1 (IP: X) <-> R1 (IP: A) s2/0 <-> Internet <-> s2/0 R2 (IP: B) <-> PC2 (IP: Y) 
+> [PC1 to send packet to PC2] R1 will encapsulate the packet in GRE, R2 will decapsulate the packet and send it to PC2
+- Point-to-Point tunnel - similar to a Serial Link (hence, no authentication or encryption provided)
+- Multiple higher layer protocols IPv6, IPv4, IPX
+- Multicast Routing Protocols available
+- GRE encapsulates other traffic within 20byte IP Header, 4byte GRE header
+
+GRE Generic Routing Encapsulation Header
+[Delivery Header][GRE Header][Payload packet]
+- When tunneling, ONLY Delivery Header will be read
+*Because of additional Header in GRE (Delivery and GRE), MTU is reduced
+*[Payload packet] is the original header
+
+==Show Tunnel==
+R1#show run int tun 0
+R1#show int s2/0 | i MTU
+
+==Configure GRE Tunnel==
+> PC1 (IP: X) <-> R1 (IP: 4.1.1.1) s2/0 <-> Internet <-> s2/0 R2 (IP: 4.1.2.2) <-> PC2 (IP: Y) 
+> PC1 (IP: X) <-> R1 [Tunnel: 10.1.3.1 --- 10.1.3.2 :Tunnel] R2 <-> PC2 (IP: Y) 
+**Encapsulates IPv4 packet (10.1.3.1, 10.1.3.2) within GRE within an IPv4 Packet (4.1.1.1, 4.1.2.2)
+**Must configure both sides
+> R1 
+R1(config)#interface tunnel 0
+R1(config-if)#ip address 10.1.3.1 255.255.255.252
+R1(config-if)#tunnel mode gre ip [IPv4]
+R1(config-if)#tunnel source 4.1.1.1
+R1(config-if)#tunnel destination 4.1.2.2
+> R2
+R2(config)#interface tunnel 0
+R2(config-if)#ip address 10.1.3.2 255.255.255.252
+R1(config-if)#tunnel mode gre ip
+R1(config-if)#tunnel source 4.1.2.2
+R1(config-if)#tunnel destination 4.1.1.1
+**Note, PC1 will not be able to get to PC2 via the tunnel, EIGRP must be enabled on R1 and R2 such that the route R2 <-> PC2 will be advertised to R1
+R1(config)#router eigrp 100
+R1(config-router)#network 10.0.0.0 [this will enable tunnel interface on 10.X.X.X, but not on 4.Y.Y.Y]
+R1(config-router)#no auto-summary [this allows, 10.X.X.X instead of classful A addresses because we have both 10.1.3.X and 10.1.1.X (not here)]
+R2(config)#router eigrp 100
+R2(config-router)#network 10.0.0.0
+R2(config-router)#no auto-summary
+
+DMVPN Dynamic Multipoint VPN
+**CCNA, do not need to know DMVPN
+- Solves problems with Point-to-Point GRE Tunnels
+> ex.
+1) Labour and Troubleshooting intensive - 500 sites connecting to one central site, requires 500 GRE tunnels (configure both sides)
+2) Complicated configuration - GRE tunnel does not provide authentication or encryption, therefore GRE have to be encapsulated within IPSec
+- DMVPN has 1 single tunnel interface that connects the central site to multiple site
+- DMVPN allows these multiple sites (Spokes) to automatically setup tunnels with each other (other Spokes) via NHRP Next Hop Resolution Protocol to discover new nodes
+ex. Central Site <-> NHRP <-> Many spokes, then spokes setup tunnels with each other
+- DMVPN like GRE is encapsulated within IPSec to provide authentication and encryption
+
+Hypervisors - Hardware with Virtual Servers (ex. VMWare)
+
+NFV Network Functions Virtualisation
+- Virtualize Network devices and Network Functions and physical appliances
+i.e. Virtualize device: routers instead of using physical router
+i.e. Virtualize function: HSRP function instead of using a full OS to run this single function
+~ Microsegmentation - segment your network into tiny subnets/segments to reduce broadcast, increase security (ex. run Firewall in front of every virtual server)
+
+SDN Software Defined Networking - 3 visions
+1) OpenSDN - Original vision at Stanford
+- "The physical separation of network control plane from forwarding plane, and where a control plane controls several devices"
+2) "SDN via Overlays" vision: "NSX from VMWare" 
+- Virtual network overlays a Physical network (underlay Network)
+3) Brite Box / White Box SDN: "Pica8, Cumulus Networks" 
+- Run OS that can be installed on multiple devices 
+(X) Don't buy Proprietary hardware, OS, features
+(Y) Buy Switches that are not tied to a specific vendor (Facebook Switches: 6 pack wedge - open modular switch)
+4) SDN via APIs Application Program Interfaces
+- Using APIs instead of traditional CLIs
+5) Open Stack
+- Manage all of networking devices, servers, storage from a single management console
+6) NFV Network Function Virtualization
+(X) Don't run specific hardware on specific OS
+(Y) Virtualize networking devices/functions/OS, rather than having a specific device performs that one function
+
+OpenSDN vs OpenFlow
+- Microsoft: OpenSDN is used to overcome traditional problems of networking
+- NSA: OpenFlow is used to provide simplicity to the current network and provide more control
